@@ -1,0 +1,38 @@
+# Maven
+target/
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+bin/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Local Env & Config
+.env
+*.env
+! .env.example
+
+# Docker
+docker-compose.override.yml
+
+# Temporary files
+*.swp
+*~

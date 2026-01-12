@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: wx-notion
+  datasource:
+    url: jdbc:h2:mem:wxdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  sql:
+    init:
+      mode: always
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+server:
+  port: 8080
+
+wx:
+  appId: ${WX_APP_ID:wx008e59f6858bba86}
+  secret: ${WX_APP_SECRET:your-app-secret}
+  token: ${WX_TOKEN:your-token}
+  encodingAesKey: ${WX_ENCODING_AES_KEY}
+
+security:
+  aesKey: ${AES_KEY:0123456789abcdef0123456789abcdef}
+
+notion:
+  version: ${NOTION_VERSION:2022-06-28}

@@ -1,0 +1,22 @@
+version: "3.8"
+services:
+  wx-notion:
+    build: .
+    image: wx-notion:latest
+    container_name: wx-notion
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: host.docker.internal
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_NAME: wxnotion
+      WX_APP_ID: ${WX_APP_ID}
+      WX_APP_SECRET: ${WX_APP_SECRET}
+      WX_TOKEN: ${WX_TOKEN}
+      WX_ENCODING_AES_KEY: ${WX_ENCODING_AES_KEY}
+      AES_KEY: ${AES_KEY}
+      NOTION_VERSION: ${NOTION_VERSION}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
