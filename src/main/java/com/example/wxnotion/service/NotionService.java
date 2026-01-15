@@ -32,7 +32,7 @@ public class NotionService {
    */
   public boolean validate(String apiKey, String databaseId) {
     Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/databases/" + databaseId)
+        .url("https://api.notion.com/v1/data_sources/" + databaseId)
         .header("Authorization", "Bearer " + apiKey)
         .header("Notion-Version", notionProps.getVersion())
         .build();
@@ -80,7 +80,7 @@ public class NotionService {
    */
   protected String findTitleProperty(String apiKey, String databaseId) throws IOException {
     Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/databases/" + databaseId)
+        .url("https://api.notion.com/v1/data_sources/" + databaseId)
         .header("Authorization", "Bearer " + apiKey)
         .header("Notion-Version", notionProps.getVersion())
         .build();
@@ -109,7 +109,7 @@ public class NotionService {
   private String buildCreatePageBody(String databaseId, String titleProp, String title, List<String> tags) throws IOException {
     StringBuilder sb = new StringBuilder();
     sb.append("{");
-    sb.append("\"parent\":{\"database_id\":\"").append(databaseId).append("\"},");
+    sb.append("\"parent\":{\"data_source_id\":\"").append(databaseId).append("\"},");
     sb.append("\"properties\":{");
     sb.append("\"").append(titleProp).append("\":{\"title\":[{\"text\":{\"content\":\"").append(escape(title)).append("\"}}]}\n");
     sb.append("}");

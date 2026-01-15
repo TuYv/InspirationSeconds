@@ -50,7 +50,7 @@ export WX_APP_SECRET=your_app_secret
 export WX_TOKEN=your_token
 export WX_ENCODING_AES_KEY=your_encoding_aes_key_43chars
 export AES_KEY=0123456789abcdef0123456789abcdef
-export NOTION_VERSION=2022-06-28
+export NOTION_VERSION=2025-09-03
 ```
 
 ## 3. 初始化数据库
