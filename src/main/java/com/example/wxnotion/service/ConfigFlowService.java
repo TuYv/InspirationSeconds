@@ -5,6 +5,8 @@ import com.example.wxnotion.mapper.ConversationStateRepository;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.*;
 import com.example.wxnotion.util.AesUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
  */
 @Service
 public class ConfigFlowService {
+  private static final Logger log = LoggerFactory.getLogger(ConfigFlowService.class);
   private final ConversationStateRepository stateRepo;
   private final UserConfigRepository configRepo;
   private final NotionService notionService;
@@ -34,6 +37,7 @@ public class ConfigFlowService {
    * 启动或重置配置流程：设置为等待 API Key 状态。
    */
   public String startOrReset(String openId) {
+    log.info("开始/重置配置流程，用户OpenID: {}", openId);
     ConversationState state = stateRepo.selectOne(new QueryWrapper<ConversationState>().eq("open_id", openId));
     if (state == null){
       state = new ConversationState();
@@ -61,6 +65,7 @@ public class ConfigFlowService {
       return null;
     }
     if (state.getStep() == ConfigStep.WAITING_KEY) {
+      log.info("收到 API Key，用户OpenID: {}", openId);
       // 收到 API Key，进入下一步等待数据库ID
       state.setTempApiKey(text.trim());
       state.setStep(ConfigStep.WAITING_DB);
@@ -71,9 +76,11 @@ public class ConfigFlowService {
     if (state.getStep() == ConfigStep.WAITING_DB) {
       String apiKey = state.getTempApiKey();
       String databaseId = text.trim();
+      log.info("收到数据库ID，用户OpenID: {}，开始验证...", openId);
       // 调用 Notion 验证数据库有效性与权限
       boolean ok = notionService.validate(apiKey, databaseId);
       if (ok) {
+        log.info("验证成功，保存配置。用户OpenID: {}", openId);
         // 保存配置并结束流程
         UserConfig cfg = configRepo.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
         if (cfg == null) cfg = new UserConfig();
@@ -90,6 +97,7 @@ public class ConfigFlowService {
         stateRepo.updateById(state);
         return "验证通过，配置已保存并启用。您可直接发送消息进行同步";
       } else {
+        log.warn("验证失败，用户OpenID: {}。Key或数据库ID无效。", openId);
         // 验证失败，保持步骤等待用户重新提交
         state.setUpdatedAt(LocalDateTime.now());
         stateRepo.updateById(state);
