@@ -10,7 +10,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_HOST: host.docker.internal
       DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: root
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: wxnotion
       WX_APP_ID: ${WX_APP_ID}
       WX_APP_SECRET: ${WX_APP_SECRET}
