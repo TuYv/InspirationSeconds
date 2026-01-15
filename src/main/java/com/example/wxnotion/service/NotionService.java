@@ -4,6 +4,8 @@ import com.example.wxnotion.config.NotionProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -19,6 +21,7 @@ import java.util.Iterator;
  */
 @Service
 public class NotionService {
+  private static final Logger log = LoggerFactory.getLogger(NotionService.class);
   private final OkHttpClient client = new OkHttpClient();
   private final ObjectMapper mapper = new ObjectMapper();
   private final NotionProperties notionProps;
@@ -32,14 +35,19 @@ public class NotionService {
    */
   public boolean validate(String apiKey, String databaseId) {
     Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/data_sources/" + databaseId)
+        // 尝试回滚到 databases 端点，兼容旧版 ID
+        .url("https://api.notion.com/v1/databases/" + databaseId)
         .header("Authorization", "Bearer " + apiKey)
         .header("Notion-Version", notionProps.getVersion())
         .build();
     try (Response resp = client.newCall(req).execute()) {
       // 2xx 视为有效，其它状态视为无效
+      if (!resp.isSuccessful()) {
+        log.warn("Notion验证失败: Code={}, Body={}", resp.code(), resp.body() != null ? resp.body().string() : "");
+      }
       return resp.isSuccessful();
     } catch (IOException e) {
+      log.error("Notion验证请求异常: {}", e.getMessage(), e);
       return false;
     }
   }
@@ -70,6 +78,8 @@ public class NotionService {
         // 解析响应，提取页面ID
         JsonNode node = mapper.readTree(respBody);
         pageId = node.path("id").asText(null);
+      } else {
+        log.error("创建Notion页面失败: Code={}, Body={}", resp.code(), respBody);
       }
       return new CreateResult(ok, pageId, respBody);
     }
@@ -78,9 +88,10 @@ public class NotionService {
   /**
    * 读取数据库属性，找到类型为 title 的属性名。
    */
-  protected String findTitleProperty(String apiKey, String databaseId) throws IOException {
+  protected String findTitleProperty(String apiKey, String databaseId) {
     Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/data_sources/" + databaseId)
+        // 尝试回滚到 databases 端点
+        .url("https://api.notion.com/v1/databases/" + databaseId)
         .header("Authorization", "Bearer " + apiKey)
         .header("Notion-Version", notionProps.getVersion())
         .build();
@@ -96,6 +107,9 @@ public class NotionService {
         }
       }
       return null;
+    } catch (IOException e) {
+      log.error("查询数据库Title属性失败: {}", e.getMessage(), e);
+      return null;
     }
   }
 
@@ -109,7 +123,8 @@ public class NotionService {
   private String buildCreatePageBody(String databaseId, String titleProp, String title, List<String> tags) throws IOException {
     StringBuilder sb = new StringBuilder();
     sb.append("{");
-    sb.append("\"parent\":{\"data_source_id\":\"").append(databaseId).append("\"},");
+    // 即使在 2025-09-03，对于 Database ID 仍需使用 database_id 字段
+    sb.append("\"parent\":{\"database_id\":\"").append(databaseId).append("\"},");
     sb.append("\"properties\":{");
     sb.append("\"").append(titleProp).append("\":{\"title\":[{\"text\":{\"content\":\"").append(escape(title)).append("\"}}]}\n");
     sb.append("}");

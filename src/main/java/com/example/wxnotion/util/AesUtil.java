@@ -1,5 +1,8 @@
 package com.example.wxnotion.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -18,6 +21,7 @@ import java.util.Base64;
  * - 密钥以十六进制字符串传入（16 或 32 字节）
  */
 public class AesUtil {
+  private static final Logger log = LoggerFactory.getLogger(AesUtil.class);
   private static final String ALG = "AES/CBC/PKCS5Padding";
 
   /**
@@ -36,7 +40,8 @@ public class AesUtil {
       byte[] out = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
       return Base64.getEncoder().encodeToString(iv) + ":" + Base64.getEncoder().encodeToString(out);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      log.error("AES加密失败: {}", e.getMessage(), e);
+      throw new RuntimeException("AES加密失败", e);
     }
   }
 
@@ -55,7 +60,8 @@ public class AesUtil {
       cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"), new IvParameterSpec(iv));
       return new String(cipher.doFinal(data), StandardCharsets.UTF_8);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      log.error("AES解密失败: {}", e.getMessage(), e);
+      throw new RuntimeException("AES解密失败", e);
     }
   }
 
