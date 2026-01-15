@@ -87,30 +87,75 @@ public class NotionService {
 
   /**
    * 读取数据库属性，找到类型为 title 的属性名。
+   * 兼容新版 API (2025-09-03) 多源数据库结构：
+   * 1. 若 GET /databases/{id} 返回 properties，直接解析（兼容旧结构或 Data Source ID）。
+   * 2. 若返回 data_sources 列表，提取第一个 Data Source ID 递归查询。
    */
   protected String findTitleProperty(String apiKey, String databaseId) {
     Request req = new Request.Builder()
-        // 尝试回滚到 databases 端点
         .url("https://api.notion.com/v1/databases/" + databaseId)
         .header("Authorization", "Bearer " + apiKey)
         .header("Notion-Version", notionProps.getVersion())
         .build();
     try (Response resp = client.newCall(req).execute()) {
       String body = resp.body() != null ? resp.body().string() : "";
-      if (!resp.isSuccessful()) return null;
-      JsonNode node = mapper.readTree(body).path("properties");
-      if (node.isObject()) {
-        for (Iterator<Map.Entry<String, JsonNode>> it = node.fields(); it.hasNext(); ) {
-          Map.Entry<String, JsonNode> e = it.next();
-          String type = e.getValue().path("type").asText();
-          if ("title".equals(type)) return e.getKey();
-        }
+      if (!resp.isSuccessful()) {
+        log.warn("查询Database信息失败: Code={}, Body={}", resp.code(), body);
+        return null;
       }
+      JsonNode root = mapper.readTree(body);
+      
+      // 1. 尝试直接从 properties 获取（常规 Data Source）
+      JsonNode props = root.path("properties");
+      if (props.isObject() && !props.isEmpty()) {
+        return findTitleInProperties(props);
+      }
+      
+      // 2. 尝试处理 Container Database（多源数据库），提取第一个 Data Source ID
+      JsonNode dataSources = root.path("data_sources");
+      if (dataSources.isArray() && dataSources.size() > 0) {
+        String dataSourceId = dataSources.get(0).path("id").asText();
+        log.info("检测到多源数据库，使用第一个Data Source ID: {}", dataSourceId);
+        // 递归调用（注意：这次调用的是 data_sources 端点以获取属性）
+        return findTitlePropertyFromDataSource(apiKey, dataSourceId);
+      }
+      
+      log.warn("未找到properties且非多源数据库结构，ID={}", databaseId);
       return null;
     } catch (IOException e) {
       log.error("查询数据库Title属性失败: {}", e.getMessage(), e);
       return null;
     }
+  }
+
+  // 辅助方法：从 Data Source ID 获取属性（直接调用 data_sources 端点）
+  private String findTitlePropertyFromDataSource(String apiKey, String dataSourceId) {
+    Request req = new Request.Builder()
+        .url("https://api.notion.com/v1/data_sources/" + dataSourceId)
+        .header("Authorization", "Bearer " + apiKey)
+        .header("Notion-Version", notionProps.getVersion())
+        .build();
+    try (Response resp = client.newCall(req).execute()) {
+      String body = resp.body() != null ? resp.body().string() : "";
+      if (!resp.isSuccessful()) return null;
+      JsonNode root = mapper.readTree(body);
+      return findTitleInProperties(root.path("properties"));
+    } catch (IOException e) {
+      log.error("递归查询Data Source失败: {}", e.getMessage(), e);
+      return null;
+    }
+  }
+
+  // 辅助方法：在 properties 节点中查找 title 类型
+  private String findTitleInProperties(JsonNode props) {
+    if (props.isObject()) {
+      for (Iterator<Map.Entry<String, JsonNode>> it = props.fields(); it.hasNext(); ) {
+        Map.Entry<String, JsonNode> e = it.next();
+        String type = e.getValue().path("type").asText();
+        if ("title".equals(type)) return e.getKey();
+      }
+    }
+    return null;
   }
 
   /**
