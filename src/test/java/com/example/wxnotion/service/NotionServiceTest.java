@@ -28,7 +28,7 @@ public class NotionServiceTest {
         return true;
       }
       @Override
-      protected String findTitleProperty(String apiKey, String databaseId) throws IOException {
+      protected String findTitleProperty(String apiKey, String databaseId) {
         return "Name";
       }
       @Override
