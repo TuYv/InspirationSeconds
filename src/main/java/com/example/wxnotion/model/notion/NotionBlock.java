@@ -25,7 +25,16 @@ public class NotionBlock {
     private String object = "block";
     
     /** Block 类型（如 paragraph, to_do, heading_3 等） */
-    private MarkDownTextTypeEnum type;
+    @JsonProperty("type")
+    private String typeValue;
+
+    public void setType(MarkDownTextTypeEnum typeEnum) {
+        this.typeValue = typeEnum.getType();
+    }
+    
+    public String getType() {
+        return this.typeValue;
+    }
     
     /** 段落内容 */
     private BlockContent paragraph;
@@ -51,7 +60,7 @@ public class NotionBlock {
     /** 创建普通段落 Block */
     public static NotionBlock paragraph(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = MarkDownTextTypeEnum.PARAGRAPH;
+        b.setType(MarkDownTextTypeEnum.PARAGRAPH);
         b.paragraph = new BlockContent(text);
         return b;
     }
@@ -59,7 +68,7 @@ public class NotionBlock {
     /** 创建无序列表项 Block */
     public static NotionBlock bulletedList(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = MarkDownTextTypeEnum.BULLETED_LIST_ITEM;
+        b.setType(MarkDownTextTypeEnum.BULLETED_LIST_ITEM);
         b.bulletedListItem = new BlockContent(text);
         return b;
     }
@@ -67,7 +76,7 @@ public class NotionBlock {
     /** 创建待办事项 Block */
     public static NotionBlock toDo(String text, boolean checked) {
         NotionBlock b = new NotionBlock();
-        b.type = MarkDownTextTypeEnum.TO_DO;
+        b.setType(MarkDownTextTypeEnum.TO_DO);
         b.toDo = new ToDoContent(text, checked);
         return b;
     }
@@ -75,7 +84,7 @@ public class NotionBlock {
     /** 创建引用块 Block */
     public static NotionBlock quote(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = MarkDownTextTypeEnum.QUOTE;
+        b.setType(MarkDownTextTypeEnum.QUOTE);
         b.quote = new BlockContent(text);
         return b;
     }
@@ -83,7 +92,7 @@ public class NotionBlock {
     /** 创建三级标题 Block */
     public static NotionBlock heading(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = MarkDownTextTypeEnum.HEADING_3 ;
+        b.setType(MarkDownTextTypeEnum.HEADING_3);
         b.heading3 = new BlockContent(text);
         return b;
     }
