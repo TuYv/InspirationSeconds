@@ -32,10 +32,6 @@ public class NotionBlock {
         this.typeValue = typeEnum.getType();
     }
     
-    public String getType() {
-        return this.typeValue;
-    }
-    
     /** 段落内容 */
     private BlockContent paragraph;
     
