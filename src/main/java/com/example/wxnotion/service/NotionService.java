@@ -14,6 +14,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
@@ -21,6 +25,8 @@ import java.util.*;
  *
  * - validate：验证 API Key 与数据库ID是否有效
  * - createPage：在指定数据库下创建页面，标题使用数据库的 title 属性，支持 Markdown 正文转换
+ * - findTodayPage：查询今日是否已有页面（按创建时间）
+ * - appendContent：向已有页面追加内容块
  */
 @Slf4j
 @Service
@@ -109,6 +115,94 @@ public class NotionService {
       return new CreateResult(ok, pageId, resp.body);
     } catch (IOException e) {
       throw e;
+    }
+  }
+
+  /**
+   * 查询数据库中今天创建的第一个页面（按 created_time）。
+   * @return Page ID 或 null
+   */
+  public String findTodayPage(String apiKey, String databaseId) {
+    try {
+      // 构造查询 Filter：created_time >= 当天 00:00:00 (Asia/Shanghai)
+      LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+      String dateStr = today.toString();
+      
+      String jsonFilter = "{" +
+              "\"filter\": {" +
+              "  \"timestamp\": \"created_time\"," +
+              "  \"created_time\": { \"on_or_after\": \"" + dateStr + "\" }" +
+              "}," +
+              "\"page_size\": 1" +
+              "}";
+              
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId + "/query",
+          "POST",
+          jsonFilter,
+          buildHeaders(apiKey)
+      ));
+      
+      if (!resp.isSuccessful) {
+        log.warn("查询今日页面失败: Code={}, Body={}", resp.code, resp.body);
+        return null;
+      }
+      
+      JsonNode root = mapper.readTree(resp.body);
+      JsonNode results = root.path("results");
+      if (results.isArray() && results.size() > 0) {
+        return results.get(0).path("id").asText();
+      }
+      return null;
+    } catch (IOException e) {
+      log.error("查询今日页面异常: {}", e.getMessage(), e);
+      return null;
+    }
+  }
+
+  /**
+   * 向指定 Page 追加内容块。
+   */
+  public boolean appendContent(String apiKey, String pageId, ContentUtil.NotionContent content) {
+    try {
+      List<NotionBlock> blocks = new ArrayList<>();
+      
+      // 1. 如果有 Title (作为第一行加粗文本，区分不同条消息)
+      if (content.getTitle() != null && !content.getTitle().isEmpty()) {
+         blocks.add(NotionBlock.heading(content.getTitle()));
+      }
+      
+      // 2. 正文
+      if (content.getContent() != null && !content.getContent().isEmpty()) {
+          blocks.addAll(parseContentToBlocks(content.getContent()));
+      }
+      
+      // 3. Tags
+      if (content.getTags() != null && !content.getTags().isEmpty()) {
+          StringBuilder sb = new StringBuilder();
+          for (String t : content.getTags()) {
+              sb.append("#").append(t).append(" ");
+          }
+          blocks.add(NotionBlock.paragraph(sb.toString().trim()));
+      }
+      
+      if (blocks.isEmpty()) return true;
+
+      Map<String, Object> bodyMap = new HashMap<>();
+      bodyMap.put("children", blocks);
+      String json = mapper.writeValueAsString(bodyMap);
+      
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/blocks/" + pageId + "/children",
+          "PATCH",
+          json,
+          buildHeaders(apiKey)
+      ));
+      
+      return resp.isSuccessful;
+    } catch (IOException e) {
+      log.error("追加页面内容失败: {}", e.getMessage(), e);
+      return false;
     }
   }
   

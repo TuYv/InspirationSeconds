@@ -28,6 +28,16 @@ public interface HttpClient {
   String post(String url, String jsonBody, Map<String, String> headers) throws IOException;
 
   /**
+   * 发送 PATCH 请求（JSON Body）。
+   * @param url 请求地址
+   * @param jsonBody JSON 请求体
+   * @param headers 请求头
+   * @return 响应体内容
+   * @throws IOException 网络异常或非 2xx 响应
+   */
+  String patch(String url, String jsonBody, Map<String, String> headers) throws IOException;
+
+  /**
    * 发送请求并获取完整响应（包含状态码、头信息等，用于特殊处理）。
    * 这里的返回类型可以封装一个自定义 Response 对象，但在简单场景下，
    * 我们可以先只提供 get/post 返回 String。

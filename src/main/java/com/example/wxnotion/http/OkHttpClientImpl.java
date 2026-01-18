@@ -44,6 +44,16 @@ public class OkHttpClientImpl implements HttpClient {
   }
 
   @Override
+  public String patch(String url, String jsonBody, Map<String, String> headers) throws IOException {
+    HttpRequest request = new HttpRequest(url, "PATCH", jsonBody, headers);
+    HttpResponse response = execute(request);
+    if (!response.isSuccessful) {
+      throw new IOException("HTTP request failed: code=" + response.code + ", body=" + response.body);
+    }
+    return response.body;
+  }
+
+  @Override
   public HttpResponse execute(HttpRequest request) throws IOException {
     Request.Builder builder = new Request.Builder().url(request.url);
     
@@ -54,6 +64,9 @@ public class OkHttpClientImpl implements HttpClient {
     if ("POST".equalsIgnoreCase(request.method)) {
       RequestBody body = RequestBody.create(request.body != null ? request.body : "", MediaType.parse("application/json; charset=utf-8"));
       builder.post(body);
+    } else if ("PATCH".equalsIgnoreCase(request.method)) {
+      RequestBody body = RequestBody.create(request.body != null ? request.body : "", MediaType.parse("application/json; charset=utf-8"));
+      builder.patch(body);
     } else {
       builder.get();
     }
