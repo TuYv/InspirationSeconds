@@ -1,6 +1,7 @@
 package com.example.wxnotion.controller;
 
 import com.example.wxnotion.service.NotionService;
+import com.example.wxnotion.service.SyncService;
 import com.example.wxnotion.util.ContentUtil;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class NotionTestController {
   private final NotionService notionService;
+  private final SyncService syncService;
 
   /**
    * 测试1：验证 API Key 与 Data Source ID 是否有效。
@@ -104,10 +106,22 @@ public class NotionTestController {
     return res;
   }
 
+  @PostMapping("/sync")
+  public void syncContent(@RequestBody CreateRequest req) {
+    String result = syncService.sync(req.openId, req.content);
+  }
+
+  @PostMapping("/findToday")
+  public String findTodayPage(@RequestBody CreateRequest req) {
+    String pageId = notionService.findTodayPage(req.key, req.id);
+    return pageId;
+  }
+
   @Data
   public static class CreateRequest {
     public String key;
     public String id;
+    public String openId;
     public String content;
   }
 }

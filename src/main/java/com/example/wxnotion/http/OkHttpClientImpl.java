@@ -1,6 +1,8 @@
 package com.example.wxnotion.http;
 
 import okhttp3.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -12,7 +14,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Component
 public class OkHttpClientImpl implements HttpClient {
-
+  private static final Logger log = LoggerFactory.getLogger(OkHttpClientImpl.class);
   private final OkHttpClient client;
 
   public OkHttpClientImpl() {
@@ -70,9 +72,25 @@ public class OkHttpClientImpl implements HttpClient {
     } else {
       builder.get();
     }
+    
+    // Log Request
+    log.info("HTTP Request: Method={}, URL={}", request.method, request.url);
+    if (request.body != null && !request.body.isEmpty()) {
+      log.info("HTTP Request Body: {}", request.body);
+    }
 
     try (Response response = client.newCall(builder.build()).execute()) {
       String respBody = response.body() != null ? response.body().string() : "";
+      
+      // Log Response
+      log.info("HTTP Response: Code={}, URL={}", response.code(), request.url);
+      if (!response.isSuccessful()) {
+          log.warn("HTTP Response Error Body: {}", respBody);
+      } else {
+          // 可选：成功响应体也打印，视内容大小决定
+          log.debug("HTTP Response Body: {}", respBody);
+      }
+      
       return new HttpResponse(response.code(), respBody, response.isSuccessful());
     }
   }

@@ -148,29 +148,64 @@ public class NotionService {
   }
 
   /**
-   * 查询数据库中今天创建的第一个页面（按 created_time）。
+   * 查询数据库中标题为今天日期的第一个页面。
    * @return Page ID 或 null
    */
   public String findTodayPage(String apiKey, String databaseId) {
     try {
-      // 构造查询 Filter：created_time >= 当天 00:00:00 (Asia/Shanghai)
+      // 1. 适配多源数据库：获取真实的 Data Source ID
+      String realDataSourceId = resolveDataSourceId(apiKey, databaseId);
+      if (realDataSourceId == null) {
+          log.warn("无法解析Data Source ID，跳过查询今日页面。ID={}", databaseId);
+          return null;
+      }
+      
+      // 2. 获取 Title 属性名 (用于构造查询 Filter)
+      String titleProp = findTitleProperty(apiKey, databaseId); // 这个方法内部也会解析 ID，稍微有点重复但更安全
+      if (titleProp == null) {
+          log.warn("无法找到Title属性名，跳过查询今日页面");
+          return null;
+      }
+
+      // 3. 构造查询 Filter：Title 属性等于今天的日期字符串
       LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
-      String dateStr = today.toString();
+      String dateStr = today.toString(); // "2026-01-18"
       
       String jsonFilter = "{" +
               "\"filter\": {" +
-              "  \"timestamp\": \"created_time\"," +
-              "  \"created_time\": { \"on_or_after\": \"" + dateStr + "\" }" +
+              "  \"property\": \"" + titleProp + "\"," +
+              "  \"rich_text\": { \"equals\": \"" + dateStr + "\" }" +
               "}," +
               "\"page_size\": 1" +
               "}";
               
+      // 注意：查询必须针对 Data Source ID (v1/data_sources/{id}/query)
+      // 但对于旧版 Database，URL 仍然是 v1/databases/{id}/query
+      // 我们统一使用 data_sources 路径查询（新版 API 推荐），或者如果解析出的是旧版 ID，就用 databases
+      
+      // 这里的逻辑稍微复杂：
+      // 如果 databaseId 是 Container ID (2e90...)， realDataSourceId 是 (2e90...-801e...)。
+      // 查询应该发给 v1/data_sources/{realId}/query。
+      // 如果 databaseId 本身就是 Data Source ID (e59e...)，realDataSourceId == databaseId。
+      // 此时也应该发给 v1/data_sources/{realId}/query (因为新版 API 把 query database 废弃了，改为 query data source)。
+      
       HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
-          "https://api.notion.com/v1/databases/" + databaseId + "/query",
+          "https://api.notion.com/v1/data_sources/" + realDataSourceId + "/query",
           "POST",
           jsonFilter,
           buildHeaders(apiKey)
       ));
+      
+      // 如果用 data_sources 端点失败（可能是旧版兼容性问题），尝试回退到 databases 端点
+      if (!resp.isSuccessful && resp.code == 404) {
+           log.info("尝试回退到 databases 端点查询: {}", realDataSourceId);
+           resp = httpClient.execute(new HttpClient.HttpRequest(
+              "https://api.notion.com/v1/databases/" + realDataSourceId + "/query",
+              "POST",
+              jsonFilter,
+              buildHeaders(apiKey)
+          ));
+      }
       
       if (!resp.isSuccessful) {
         log.warn("查询今日页面失败: Code={}, Body={}", resp.code, resp.body);
@@ -187,6 +222,34 @@ public class NotionService {
       log.error("查询今日页面异常: {}", e.getMessage(), e);
       return null;
     }
+  }
+  
+  /**
+   * 解析真实的 Data Source ID。
+   * 如果传入的是 Container ID，提取其第一个 Data Source ID。
+   * 如果传入的是普通 ID，直接返回。
+   */
+  private String resolveDataSourceId(String apiKey, String databaseId) throws IOException {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId,
+          "GET",
+          null,
+          buildHeaders(apiKey)
+      ));
+      
+      if (!resp.isSuccessful) {
+          // 可能是直接传了 Data Source ID，尝试直接 check data source endpoint?
+          // 或者先假定它就是 ID
+          return databaseId;
+      }
+      
+      JsonNode root = mapper.readTree(resp.body);
+      JsonNode dataSources = root.path("data_sources");
+      if (dataSources.isArray() && dataSources.size() > 0) {
+          return dataSources.get(0).path("id").asText();
+      }
+      // 没有 data_sources，说明它本身可能就是 data source (或者旧版 database)
+      return databaseId;
   }
 
   /**
