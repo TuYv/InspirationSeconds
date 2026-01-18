@@ -1,5 +1,6 @@
 package com.example.wxnotion.model.notion;
 
+import com.example.wxnotion.MarkDownTextTypeEnum;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -24,7 +25,7 @@ public class NotionBlock {
     private String object = "block";
     
     /** Block 类型（如 paragraph, to_do, heading_3 等） */
-    private String type;
+    private MarkDownTextTypeEnum type;
     
     /** 段落内容 */
     private BlockContent paragraph;
@@ -50,7 +51,7 @@ public class NotionBlock {
     /** 创建普通段落 Block */
     public static NotionBlock paragraph(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = "paragraph";
+        b.type = MarkDownTextTypeEnum.PARAGRAPH;
         b.paragraph = new BlockContent(text);
         return b;
     }
@@ -58,7 +59,7 @@ public class NotionBlock {
     /** 创建无序列表项 Block */
     public static NotionBlock bulletedList(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = "bulleted_list_item";
+        b.type = MarkDownTextTypeEnum.BULLETED_LIST_ITEM;
         b.bulletedListItem = new BlockContent(text);
         return b;
     }
@@ -66,7 +67,7 @@ public class NotionBlock {
     /** 创建待办事项 Block */
     public static NotionBlock toDo(String text, boolean checked) {
         NotionBlock b = new NotionBlock();
-        b.type = "to_do";
+        b.type = MarkDownTextTypeEnum.TO_DO;
         b.toDo = new ToDoContent(text, checked);
         return b;
     }
@@ -74,7 +75,7 @@ public class NotionBlock {
     /** 创建引用块 Block */
     public static NotionBlock quote(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = "quote";
+        b.type = MarkDownTextTypeEnum.QUOTE;
         b.quote = new BlockContent(text);
         return b;
     }
@@ -82,7 +83,7 @@ public class NotionBlock {
     /** 创建三级标题 Block */
     public static NotionBlock heading(String text) {
         NotionBlock b = new NotionBlock();
-        b.type = "heading_3";
+        b.type = MarkDownTextTypeEnum.HEADING_3 ;
         b.heading3 = new BlockContent(text);
         return b;
     }

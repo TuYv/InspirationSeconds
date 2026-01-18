@@ -1,6 +1,7 @@
 package com.example.wxnotion.service;
 
 import com.example.wxnotion.config.NotionProperties;
+import com.example.wxnotion.http.OkHttpClientImpl;
 import com.example.wxnotion.util.ContentUtil;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class NotionServiceTest {
   MockWebServer server;
   NotionService notion;
+  OkHttpClientImpl okHttpClient;
 
   @BeforeEach
   void setUp() throws IOException {
@@ -23,7 +25,7 @@ public class NotionServiceTest {
     server.start();
     NotionProperties props = new NotionProperties();
     props.setVersion("2022-06-28");
-    notion = new NotionService(props) {
+    notion = new NotionService(okHttpClient, props) {
       @Override
       public boolean validate(String apiKey, String databaseId) {
         return true;

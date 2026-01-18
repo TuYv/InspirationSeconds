@@ -1,6 +1,8 @@
 package com.example.wxnotion.service;
 
 import com.example.wxnotion.config.NotionProperties;
+import com.example.wxnotion.http.HttpClient;
+import com.example.wxnotion.http.HttpClient.HttpResponse;
 import com.example.wxnotion.model.notion.NotionBlock;
 import com.example.wxnotion.model.notion.NotionPageRequest;
 import com.example.wxnotion.model.notion.RichText;
@@ -9,7 +11,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -25,7 +26,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 public class NotionService {
-  private final OkHttpClient client = new OkHttpClient();
+  private final HttpClient httpClient;
   private final ObjectMapper mapper = new ObjectMapper();
   private final NotionProperties notionProps;
 
@@ -33,18 +34,19 @@ public class NotionService {
    * 调用 Notion `GET /v1/databases/{id}` 验证数据库存在与权限有效。
    */
   public boolean validate(String apiKey, String databaseId) {
-    Request req = new Request.Builder()
-        // 尝试回滚到 databases 端点，兼容旧版 ID
-        .url("https://api.notion.com/v1/databases/" + databaseId)
-        .header("Authorization", "Bearer " + apiKey)
-        .header("Notion-Version", notionProps.getVersion())
-        .build();
-    try (Response resp = client.newCall(req).execute()) {
+    try {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId,
+          "GET",
+          null,
+          buildHeaders(apiKey)
+      ));
+      
       // 2xx 视为有效，其它状态视为无效
-      if (!resp.isSuccessful()) {
-        log.warn("Notion验证失败: Code={}, Body={}", resp.code(), resp.body() != null ? resp.body().string() : "");
+      if (!resp.isSuccessful) {
+        log.warn("Notion验证失败: Code={}, Body={}", resp.code, resp.body);
       }
-      return resp.isSuccessful();
+      return resp.isSuccessful;
     } catch (IOException e) {
       log.error("Notion验证请求异常: {}", e.getMessage(), e);
       return false;
@@ -87,55 +89,30 @@ public class NotionService {
     NotionPageRequest bodyObj = new NotionPageRequest(databaseId, props, children);
     String json = mapper.writeValueAsString(bodyObj);
 
-    Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/pages")
-        .header("Authorization", "Bearer " + apiKey)
-        .header("Notion-Version", notionProps.getVersion())
-        .post(RequestBody.create(json, MediaType.parse("application/json")))
-        .build();
-    try (Response resp = client.newCall(req).execute()) {
-      String respBody = resp.body() != null ? resp.body().string() : "";
-      boolean ok = resp.isSuccessful();
+    try {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/pages",
+          "POST",
+          json,
+          buildHeaders(apiKey)
+      ));
+      
+      boolean ok = resp.isSuccessful;
       String pageId = null;
       if (ok) {
         // 解析响应，提取页面ID
-        JsonNode node = mapper.readTree(respBody);
+        JsonNode node = mapper.readTree(resp.body);
         pageId = node.path("id").asText(null);
       } else {
-        log.error("创建Notion页面失败: Code={}, Body={}", resp.code(), respBody);
+        log.error("创建Notion页面失败: Code={}, Body={}", resp.code, resp.body);
       }
-      return new CreateResult(ok, pageId, respBody);
+      return new CreateResult(ok, pageId, resp.body);
+    } catch (IOException e) {
+      throw e;
     }
   }
-
-  private List<NotionBlock> parseContentToBlocks(String content) {
-      List<NotionBlock> blocks = new ArrayList<>();
-      String[] lines = content.split("\\r?\\n");
-      for (String line : lines) {
-          if (line.trim().isEmpty()) {
-              blocks.add(NotionBlock.paragraph("")); // Empty line
-              continue;
-          }
-          
-          String trimmed = line.trim();
-          if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-              blocks.add(NotionBlock.bulletedList(trimmed.substring(2)));
-          } else if (trimmed.startsWith("[] ")) {
-              blocks.add(NotionBlock.toDo(trimmed.substring(3), false));
-          } else if (trimmed.startsWith("[ ] ")) {
-               blocks.add(NotionBlock.toDo(trimmed.substring(4), false));
-          } else if (trimmed.startsWith("[x] ") || trimmed.startsWith("[X] ")) {
-               blocks.add(NotionBlock.toDo(trimmed.substring(4), true));
-          } else if (trimmed.startsWith("> ")) {
-              blocks.add(NotionBlock.quote(trimmed.substring(2)));
-          } else if (trimmed.startsWith("# ")) {
-               blocks.add(NotionBlock.heading(trimmed.substring(2)));
-          } else {
-              blocks.add(NotionBlock.paragraph(line)); 
-          }
-      }
-      return blocks;
-  }
+  
+  // ... (parseContentToBlocks 保持不变)
 
   /**
    * 读取数据库属性，找到类型为 title 的属性名。
@@ -144,18 +121,19 @@ public class NotionService {
    * 2. 若返回 data_sources 列表，提取第一个 Data Source ID 递归查询。
    */
   protected String findTitleProperty(String apiKey, String databaseId) {
-    Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/databases/" + databaseId)
-        .header("Authorization", "Bearer " + apiKey)
-        .header("Notion-Version", notionProps.getVersion())
-        .build();
-    try (Response resp = client.newCall(req).execute()) {
-      String body = resp.body() != null ? resp.body().string() : "";
-      if (!resp.isSuccessful()) {
-        log.warn("查询Database信息失败: Code={}, Body={}", resp.code(), body);
+    try {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId,
+          "GET",
+          null,
+          buildHeaders(apiKey)
+      ));
+
+      if (!resp.isSuccessful) {
+        log.warn("查询Database信息失败: Code={}, Body={}", resp.code, resp.body);
         return null;
       }
-      JsonNode root = mapper.readTree(body);
+      JsonNode root = mapper.readTree(resp.body);
       
       // 1. 尝试直接从 properties 获取（常规 Data Source）
       JsonNode props = root.path("properties");
@@ -182,21 +160,30 @@ public class NotionService {
 
   // 辅助方法：从 Data Source ID 获取属性（直接调用 data_sources 端点）
   private String findTitlePropertyFromDataSource(String apiKey, String dataSourceId) {
-    Request req = new Request.Builder()
-        .url("https://api.notion.com/v1/data_sources/" + dataSourceId)
-        .header("Authorization", "Bearer " + apiKey)
-        .header("Notion-Version", notionProps.getVersion())
-        .build();
-    try (Response resp = client.newCall(req).execute()) {
-      String body = resp.body() != null ? resp.body().string() : "";
-      if (!resp.isSuccessful()) return null;
-      JsonNode root = mapper.readTree(body);
+    try {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/data_sources/" + dataSourceId,
+          "GET",
+          null,
+          buildHeaders(apiKey)
+      ));
+      
+      if (!resp.isSuccessful) return null;
+      JsonNode root = mapper.readTree(resp.body);
       return findTitleInProperties(root.path("properties"));
     } catch (IOException e) {
       log.error("递归查询Data Source失败: {}", e.getMessage(), e);
       return null;
     }
   }
+
+  private Map<String, String> buildHeaders(String apiKey) {
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Authorization", "Bearer " + apiKey);
+    headers.put("Notion-Version", notionProps.getVersion());
+    return headers;
+  }
+
 
   // 辅助方法：在 properties 节点中查找 title 类型
   private String findTitleInProperties(JsonNode props) {
