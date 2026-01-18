@@ -1,20 +1,16 @@
 package com.example.wxnotion.service;
 
-import me.chanjar.weixin.common.api.WxConsts;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlOutMessage;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class WeChatService {
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
-
-  public WeChatService(ConfigFlowService configFlowService, SyncService syncService) {
-    this.configFlowService = configFlowService;
-    this.syncService = syncService;
-  }
 
   /**
    * 微信消息处理入口。

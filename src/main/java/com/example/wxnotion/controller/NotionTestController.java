@@ -1,8 +1,10 @@
 package com.example.wxnotion.controller;
 
 import com.example.wxnotion.service.NotionService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.example.wxnotion.util.ContentUtil;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -17,15 +19,12 @@ import java.util.Map;
  * 用于开发与调试阶段直接验证 Notion API 集成情况，无需通过微信回调。
  * 生产环境建议通过安全配置禁用此控制器。
  */
+@Slf4j
 @RestController
 @RequestMapping("/test/notion")
+@RequiredArgsConstructor
 public class NotionTestController {
-  private static final Logger log = LoggerFactory.getLogger(NotionTestController.class);
   private final NotionService notionService;
-
-  public NotionTestController(NotionService notionService) {
-    this.notionService = notionService;
-  }
 
   /**
    * 测试1：验证 API Key 与 Data Source ID 是否有效。
@@ -74,14 +73,22 @@ public class NotionTestController {
     Map<String, Object> res = new HashMap<>();
     try {
       // 简单解析 tag（模拟 TagUtil）
-      String content = req.content;
+      String fullContent = req.content;
+      String title = fullContent;
+      String body = null;
+      if (fullContent != null && fullContent.contains("\n")) {
+          int idx = fullContent.indexOf("\n");
+          title = fullContent.substring(0, idx).trim();
+          body = fullContent.substring(idx + 1).trim();
+      }
+
       List<String> tags = Collections.emptyList();
-      if (content.contains("#")) {
+      if (fullContent != null && fullContent.contains("#")) {
         // 简易分割，实际逻辑见 TagUtil
         tags = Collections.singletonList("TestTag");
       }
       
-      NotionService.CreateResult result = notionService.createPage(req.key, req.id, content, tags);
+      NotionService.CreateResult result = notionService.createPage(req.key, req.id, new ContentUtil.NotionContent(title, body, tags));
       res.put("success", result.ok);
       res.put("pageId", result.pageId);
       res.put("rawResponse", result.raw);
@@ -97,6 +104,7 @@ public class NotionTestController {
     return res;
   }
 
+  @Data
   public static class CreateRequest {
     public String key;
     public String id;

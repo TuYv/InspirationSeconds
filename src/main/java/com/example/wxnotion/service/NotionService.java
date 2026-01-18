@@ -1,34 +1,33 @@
 package com.example.wxnotion.service;
 
 import com.example.wxnotion.config.NotionProperties;
+import com.example.wxnotion.model.notion.NotionBlock;
+import com.example.wxnotion.model.notion.NotionPageRequest;
+import com.example.wxnotion.model.notion.RichText;
+import com.example.wxnotion.util.ContentUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Iterator;
+import java.util.*;
 
 /**
  * Notion OpenAPI 访问服务。
  *
  * - validate：验证 API Key 与数据库ID是否有效
- * - createPage：在指定数据库下创建页面，标题使用数据库的 title 属性，标签附加为段落文本
+ * - createPage：在指定数据库下创建页面，标题使用数据库的 title 属性，支持 Markdown 正文转换
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class NotionService {
-  private static final Logger log = LoggerFactory.getLogger(NotionService.class);
   private final OkHttpClient client = new OkHttpClient();
   private final ObjectMapper mapper = new ObjectMapper();
   private final NotionProperties notionProps;
-
-  public NotionService(NotionProperties notionProps) {
-    this.notionProps = notionProps;
-  }
 
   /**
    * 调用 Notion `GET /v1/databases/{id}` 验证数据库存在与权限有效。
@@ -55,15 +54,39 @@ public class NotionService {
   /**
    * 创建页面：动态查找 title 属性名，并构造页面内容。
    *
+   * @param content 正文内容，将转换为 Block
    * @return 返回创建结果（包含成功标识与 pageId 或错误原始响应）
    */
-  public CreateResult createPage(String apiKey, String databaseId, String title, List<String> tags) throws IOException {
+  public CreateResult createPage(String apiKey, String databaseId, ContentUtil.NotionContent content) throws IOException {
     String titleProp = findTitleProperty(apiKey, databaseId);
     if (titleProp == null) {
       throw new IOException("No title property in database");
     }
 
-    String json = buildCreatePageBody(databaseId, titleProp, title, tags);
+    // Build Properties
+    Map<String, Object> props = new HashMap<>();
+    Map<String, Object> titleObj = new HashMap<>();
+    titleObj.put("title", Collections.singletonList(new RichText(content.getTitle())));
+    props.put(titleProp, titleObj);
+
+    // Build Children (Blocks)
+    List<NotionBlock> children = new ArrayList<>();
+    if (content.getContent() != null && !content.getContent().isEmpty()) {
+        children.addAll(parseContentToBlocks(content.getContent()));
+    }
+    
+    // Add tags as a paragraph at the bottom
+    if (content.getTags() != null && !content.getTags().isEmpty()) {
+        StringBuilder sb = new StringBuilder();
+        for (String t : content.getTags()) {
+            sb.append("#").append(t).append(" ");
+        }
+        children.add(NotionBlock.paragraph(sb.toString().trim()));
+    }
+
+    NotionPageRequest bodyObj = new NotionPageRequest(databaseId, props, children);
+    String json = mapper.writeValueAsString(bodyObj);
+
     Request req = new Request.Builder()
         .url("https://api.notion.com/v1/pages")
         .header("Authorization", "Bearer " + apiKey)
@@ -83,6 +106,35 @@ public class NotionService {
       }
       return new CreateResult(ok, pageId, respBody);
     }
+  }
+
+  private List<NotionBlock> parseContentToBlocks(String content) {
+      List<NotionBlock> blocks = new ArrayList<>();
+      String[] lines = content.split("\\r?\\n");
+      for (String line : lines) {
+          if (line.trim().isEmpty()) {
+              blocks.add(NotionBlock.paragraph("")); // Empty line
+              continue;
+          }
+          
+          String trimmed = line.trim();
+          if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+              blocks.add(NotionBlock.bulletedList(trimmed.substring(2)));
+          } else if (trimmed.startsWith("[] ")) {
+              blocks.add(NotionBlock.toDo(trimmed.substring(3), false));
+          } else if (trimmed.startsWith("[ ] ")) {
+               blocks.add(NotionBlock.toDo(trimmed.substring(4), false));
+          } else if (trimmed.startsWith("[x] ") || trimmed.startsWith("[X] ")) {
+               blocks.add(NotionBlock.toDo(trimmed.substring(4), true));
+          } else if (trimmed.startsWith("> ")) {
+              blocks.add(NotionBlock.quote(trimmed.substring(2)));
+          } else if (trimmed.startsWith("# ")) {
+               blocks.add(NotionBlock.heading(trimmed.substring(2)));
+          } else {
+              blocks.add(NotionBlock.paragraph(line)); 
+          }
+      }
+      return blocks;
   }
 
   /**
@@ -156,44 +208,6 @@ public class NotionService {
       }
     }
     return null;
-  }
-
-  /**
-   * 构造创建页面的请求体 JSON。
-   *
-   * - parent.database_id 指向目标数据库
-   * - properties.title 使用传入的标题内容
-   * - children 可选：将标签作为段落文本附加（易于在 Notion 中查看）
-   */
-  private String buildCreatePageBody(String databaseId, String titleProp, String title, List<String> tags) throws IOException {
-    StringBuilder sb = new StringBuilder();
-    sb.append("{");
-    // 即使在 2025-09-03，对于 Database ID 仍需使用 database_id 字段
-    sb.append("\"parent\":{\"database_id\":\"").append(databaseId).append("\"},");
-    sb.append("\"properties\":{");
-    sb.append("\"").append(titleProp).append("\":{\"title\":[{\"text\":{\"content\":\"").append(escape(title)).append("\"}}]}\n");
-    sb.append("}");
-    if (tags != null && !tags.isEmpty()) {
-      // 以 children 方式附加一个段落，其中包含正文与标签文本
-      sb.append(",\"children\":[{\"object\":\"block\",\"type\":\"paragraph\",\"paragraph\":{\"rich_text\":[");
-      sb.append("{\"type\":\"text\",\"text\":{\"content\":\"").append(escape(title)).append("\"}}");
-      for (String t : tags) {
-        sb.append(",{")
-          .append("\"type\":\"text\",\"text\":{\"content\":\" ")
-          .append(escape("#" + t))
-          .append("\"}}");
-      }
-      sb.append("]}}]");
-    }
-    sb.append("}");
-    return sb.toString();
-  }
-
-  /**
-   * 转义 JSON 字符串中的特殊字符。
-   */
-  private String escape(String s) {
-    return s.replace("\\", "\\\\").replace("\"", "\\\"");
   }
 
   /** 创建页面结果模型 */

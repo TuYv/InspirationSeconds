@@ -5,8 +5,8 @@ import com.example.wxnotion.mapper.ConversationStateRepository;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.*;
 import com.example.wxnotion.util.AesUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,21 +17,16 @@ import java.time.LocalDateTime;
  *
  * 职责：根据用户文本指令推进配置步骤，调用 Notion 验证并持久化配置。
  */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ConfigFlowService {
-  private static final Logger log = LoggerFactory.getLogger(ConfigFlowService.class);
   private final ConversationStateRepository stateRepo;
   private final UserConfigRepository configRepo;
   private final NotionService notionService;
 
   @Value("${security.aesKey}")
   private String aesKey;
-
-  public ConfigFlowService(ConversationStateRepository stateRepo, UserConfigRepository configRepo, NotionService notionService) {
-    this.stateRepo = stateRepo;
-    this.configRepo = configRepo;
-    this.notionService = notionService;
-  }
 
   /**
    * 启动或重置配置流程：设置为等待 API Key 状态。

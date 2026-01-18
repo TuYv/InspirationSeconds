@@ -40,8 +40,8 @@ public class TagUtil {
       last = m.end();
     }
     sb.append(text.substring(last));
-    // 规整空白：合并连续空格并去首尾空白
-    String body = sb.toString().replaceAll("\\s+", " ").trim();
+    // 规整空白：去首尾空白，保留换行
+    String body = sb.toString().trim();
     return new Parsed(body, tags);
   }
 }

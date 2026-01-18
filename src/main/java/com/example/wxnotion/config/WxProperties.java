@@ -1,5 +1,6 @@
 package com.example.wxnotion.config;
 
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Component;
  * - token：服务器校验用 Token
  * - encodingAesKey：消息加解密密钥（兼容/安全模式）
  */
+@Data
 @Component
 @ConfigurationProperties(prefix = "wx")
 public class WxProperties {
@@ -19,13 +21,4 @@ public class WxProperties {
   private String secret;
   private String token;
   private String encodingAesKey;
-
-  public String getAppId() { return appId; }
-  public void setAppId(String appId) { this.appId = appId; }
-  public String getSecret() { return secret; }
-  public void setSecret(String secret) { this.secret = secret; }
-  public String getToken() { return token; }
-  public void setToken(String token) { this.token = token; }
-  public String getEncodingAesKey() { return encodingAesKey; }
-  public void setEncodingAesKey(String encodingAesKey) { this.encodingAesKey = encodingAesKey; }
 }

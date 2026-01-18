@@ -3,6 +3,7 @@ package com.example.wxnotion.controller;
 import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlOutMessage;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import com.example.wxnotion.service.WeChatService;
@@ -10,14 +11,10 @@ import org.apache.commons.lang3.StringUtils;
 
 @RestController
 @RequestMapping("/wx/portal")
+@RequiredArgsConstructor
 public class WxPortalController {
   private final WxMpService wxService;
   private final WeChatService weChatService;
-
-  public WxPortalController(WxMpService wxService, WeChatService weChatService) {
-    this.wxService = wxService;
-    this.weChatService = weChatService;
-  }
 
   /**
    * 微信服务器验证：原样返回 `echostr` 表示验证通过。

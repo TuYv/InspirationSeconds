@@ -3,6 +3,7 @@ package com.example.wxnotion.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,9 +12,9 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/configs")
+@RequiredArgsConstructor
 public class UserConfigController {
   private final UserConfigRepository repo;
-  public UserConfigController(UserConfigRepository repo) { this.repo = repo; }
 
   /**
    * 列出所有配置记录。

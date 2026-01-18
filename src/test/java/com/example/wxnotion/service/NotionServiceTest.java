@@ -1,6 +1,7 @@
 package com.example.wxnotion.service;
 
 import com.example.wxnotion.config.NotionProperties;
+import com.example.wxnotion.util.ContentUtil;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -32,7 +33,7 @@ public class NotionServiceTest {
         return "Name";
       }
       @Override
-      public CreateResult createPage(String apiKey, String databaseId, String title, java.util.List<String> tags) throws IOException {
+      public CreateResult createPage(String apiKey, String databaseId, ContentUtil.NotionContent content) throws IOException {
         return new CreateResult(true, "pageId", "{}");
       }
     };
@@ -45,7 +46,8 @@ public class NotionServiceTest {
 
   @Test
   void buildCreatePage() throws IOException {
-    NotionService.CreateResult res = notion.createPage("key", "db", "正文", Arrays.asList("工作", "日报"));
+    ContentUtil.NotionContent notionContent = new ContentUtil.NotionContent("正文", "内容", Arrays.asList("工作", "日报"));
+    NotionService.CreateResult res = notion.createPage("key", "db", notionContent);
     assertTrue(res.ok);
   }
 }
