@@ -2,6 +2,7 @@ package com.example.wxnotion.util;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.regex.Pattern;
 public class ContentUtil {
     private static final Pattern TAG = Pattern.compile("#([\\p{L}\\p{N}_-]+)");
     @Data
+    @NoArgsConstructor
     @AllArgsConstructor
     public static class NotionContent {
         private String title;

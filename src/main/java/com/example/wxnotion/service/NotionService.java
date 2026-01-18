@@ -118,6 +118,35 @@ public class NotionService {
     }
   }
 
+  private List<NotionBlock> parseContentToBlocks(String content) {
+    List<NotionBlock> blocks = new ArrayList<>();
+    String[] lines = content.split("\\r?\\n");
+    for (String line : lines) {
+      if (line.trim().isEmpty()) {
+        blocks.add(NotionBlock.paragraph("")); // Empty line
+        continue;
+      }
+      
+      String trimmed = line.trim();
+      if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+        blocks.add(NotionBlock.bulletedList(trimmed.substring(2)));
+      } else if (trimmed.startsWith("[] ")) {
+        blocks.add(NotionBlock.toDo(trimmed.substring(3), false));
+      } else if (trimmed.startsWith("[ ] ")) {
+        blocks.add(NotionBlock.toDo(trimmed.substring(4), false));
+      } else if (trimmed.startsWith("[x] ") || trimmed.startsWith("[X] ")) {
+        blocks.add(NotionBlock.toDo(trimmed.substring(4), true));
+      } else if (trimmed.startsWith("> ")) {
+        blocks.add(NotionBlock.quote(trimmed.substring(2)));
+      } else if (trimmed.startsWith("# ")) {
+        blocks.add(NotionBlock.heading(trimmed.substring(2)));
+      } else {
+        blocks.add(NotionBlock.paragraph(line)); 
+      }
+    }
+    return blocks;
+  }
+
   /**
    * 查询数据库中今天创建的第一个页面（按 created_time）。
    * @return Page ID 或 null
