@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import com.example.wxnotion.service.WeChatService;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/wx/portal")
 @RequiredArgsConstructor
@@ -49,6 +51,6 @@ public class WxPortalController {
         ? WxMpXmlMessage.fromEncryptedXml(xml, wxService.getWxMpConfigStorage(), timestamp, nonce, msgSignature)
         : WxMpXmlMessage.fromXml(xml);
     WxMpXmlOutMessage out = weChatService.handle(inMessage);
-    return out.toXml();
+    return Optional.ofNullable(out).map(WxMpXmlOutMessage::toXml).orElse(null);
   }
 }
