@@ -60,6 +60,31 @@ public class NotionService {
   }
 
   /**
+   * 获取指定 Block 的子块列表 (Retrieve block children)
+   * 用于读取页面内容，供 AI 总结使用
+   */
+  public JsonNode retrieveBlockChildren(String apiKey, String blockId) {
+    try {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/blocks/" + blockId + "/children?page_size=100",
+          "GET",
+          null,
+          buildHeaders(apiKey)
+      ));
+
+      if (!resp.isSuccessful) {
+        log.warn("Notion API 读取失败: Code={}, Body={}", resp.code, resp.body);
+        return null;
+      }
+
+      return mapper.readTree(resp.body);
+    } catch (IOException e) {
+      log.error("Notion API 请求异常: {}", e.getMessage(), e);
+      return null;
+    }
+  }
+
+  /**
    * 创建页面：动态查找 title 属性名，并构造页面内容。
    *
    * @param content 正文内容，将转换为 Block

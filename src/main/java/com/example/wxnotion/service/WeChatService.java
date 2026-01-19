@@ -12,12 +12,16 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import me.chanjar.weixin.common.bean.result.WxMediaUploadResult;
+import java.io.File;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WeChatService implements ApplicationContextAware {
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
+  private final DailySummaryService dailySummaryService;
   private final WxMpService wxMpService;
   private WeChatService proxyInstance;
   private ApplicationContext applicationContext;
@@ -78,6 +82,9 @@ public class WeChatService implements ApplicationContextAware {
     } else if (content.startsWith("查询我的配置")) {
       // 查询当前配置状态
       return configFlowService.queryConfig(openId);
+    } else if (content.equals("生成日报") || content.equals("测试日报")) {
+      // 手动触发日报生成
+      return dailySummaryService.triggerSummaryForUser(openId);
     } else {
       // 若当前处于配置流程，则继续处理；否则执行内容同步
       String flowReply = configFlowService.handleInput(openId, content);
@@ -100,9 +107,36 @@ public class WeChatService implements ApplicationContextAware {
   }
 
   /**
+   * 推送图片给用户（客服消息）
+   */
+  public void pushImageToUser(String openId, File imageFile) {
+      try {
+          // 1. 上传图片到微信服务器 (获得 media_id)
+          // "image" 是微信规定的媒体类型
+          WxMediaUploadResult uploadResult = wxMpService.getMaterialService().mediaUpload("image", imageFile);
+          String mediaId = uploadResult.getMediaId();
+
+          // 2. 构建图片客服消息
+          WxMpKefuMessage kefuMsg = WxMpKefuMessage.IMAGE()
+                  .toUser(openId)
+                  .mediaId(mediaId)
+                  .build();
+
+          // 3. 发送
+          wxMpService.getKefuService().sendKefuMessage(kefuMsg);
+          
+          log.info("图片已推送给用户: {}, MediaId: {}", openId, mediaId);
+
+      } catch (Exception e) {
+          log.error("推送图片给用户失败: {}", e.getMessage(), e);
+          pushMessageToUser(openId, "日签图片生成失败，请稍后重试");
+      }
+  }
+
+  /**
    * 推送消息给用户（使用客服消息接口）
    */
-  private void pushMessageToUser(String openId, String content) {
+  public void pushMessageToUser(String openId, String content) {
     try {
       // 使用客服消息接口向用户推送消息
       WxMpKefuMessage kefuMsg = WxMpKefuMessage.TEXT()
