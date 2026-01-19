@@ -50,7 +50,7 @@ public class WxPortalController {
     WxMpXmlMessage inMessage = StringUtils.isNotBlank(msgSignature)
         ? WxMpXmlMessage.fromEncryptedXml(xml, wxService.getWxMpConfigStorage(), timestamp, nonce, msgSignature)
         : WxMpXmlMessage.fromXml(xml);
-    WxMpXmlOutMessage out = weChatService.handle(inMessage);
-    return Optional.ofNullable(out).map(WxMpXmlOutMessage::toXml).orElse(null);
+    weChatService.handle(inMessage);
+    return null;
   }
 }

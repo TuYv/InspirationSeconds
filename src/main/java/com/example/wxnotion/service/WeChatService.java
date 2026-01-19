@@ -24,7 +24,7 @@ public class WeChatService {
    * 微信消息处理入口。
    * 根据文本内容匹配指令或进入配置流程，否则执行同步。
    */
-  public WxMpXmlOutMessage handle(WxMpXmlMessage in) {
+  public void handle(WxMpXmlMessage in) {
     String openId = in.getFromUser();
     String msgType = in.getMsgType();
     String content = StringUtils.defaultString(in.getContent(), "").trim();
@@ -32,29 +32,7 @@ public class WeChatService {
     // 立即返回空响应，避免超过5秒超时
     log.info("接收到微信消息，开始异步处理。用户: {}, 消息类型: {}", openId, msgType);
 
-    String reply;
-    if (content.startsWith("配置Notion") || content.startsWith("修改Notion配置")
-    || content.startsWith("配置notion") || content.startsWith("修改notion")) {
-      // 进入/重置配置流程
-      reply = configFlowService.startOrReset(openId);
-    } else if (content.startsWith("查询我的配置")) {
-      // 查询当前配置状态
-      reply = configFlowService.queryConfig(openId);
-    } else {
-      // 若当前处于配置流程，则继续处理；否则执行内容同步
-      String flowReply = configFlowService.handleInput(openId, content);
-      if (Objects.isNull(flowReply)) {
-        this.processMessageAsync(in, openId, msgType, content);
-        return null;
-      } else {
-        reply = flowReply;
-      }
-    }
-    return WxMpXmlOutMessage.TEXT()
-        .fromUser(in.getToUser())
-        .toUser(openId)
-        .content(reply)
-        .build();
+    this.processMessageAsync(in, openId, msgType, content);
   }
 
   /**
@@ -84,7 +62,19 @@ public class WeChatService {
    * 处理文本消息
    */
   private String processTextMessage(String openId, String content) {
-    return syncService.sync(openId, content);
+
+    if (content.startsWith("配置Notion") || content.startsWith("修改Notion配置")
+     || content.startsWith("配置notion") || content.startsWith("修改notion")) {
+      // 进入/重置配置流程
+      return configFlowService.startOrReset(openId);
+    } else if (content.startsWith("查询我的配置")) {
+      // 查询当前配置状态
+      return configFlowService.queryConfig(openId);
+    } else {
+      // 若当前处于配置流程，则继续处理；否则执行内容同步
+      String flowReply = configFlowService.handleInput(openId, content);
+      return flowReply != null ? flowReply : syncService.sync(openId, content);
+    }
   }
 
   /**
