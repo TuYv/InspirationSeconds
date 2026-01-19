@@ -6,18 +6,28 @@ import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.kefu.WxMpKefuMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class WeChatService {
+public class WeChatService implements ApplicationContextAware {
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
   private final WxMpService wxMpService;
-  private final WeChatService proxyInstance;
+  private WeChatService proxyInstance;
+  private ApplicationContext applicationContext;
 
+  private WeChatService getThis() {
+    if (proxyInstance == null) {
+      proxyInstance = applicationContext.getBean(WeChatService.class);
+    }
+    return proxyInstance;
+  }
   /**
    * 微信消息处理入口。
    * 根据文本内容匹配指令或进入配置流程，否则执行同步。
@@ -30,7 +40,7 @@ public class WeChatService {
     // 立即返回空响应，避免超过5秒超时
     log.info("接收到微信消息，开始异步处理。用户: {}, 消息类型: {}", openId, msgType);
 
-    this.proxyInstance.processMessageAsync(in, openId, msgType, content);
+    this.getThis().processMessageAsync(in, openId, msgType, content);
   }
 
   /**
@@ -106,5 +116,10 @@ public class WeChatService {
     } catch (Exception e) {
       log.error("推送消息给用户失败: {}", e.getMessage(), e);
     }
+  }
+
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    this.applicationContext = applicationContext;
   }
 }
