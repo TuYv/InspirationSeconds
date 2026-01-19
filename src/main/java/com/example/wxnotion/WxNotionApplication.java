@@ -3,6 +3,7 @@ package com.example.wxnotion;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.mybatis.spring.annotation.MapperScan;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * 应用入口。
@@ -10,6 +11,7 @@ import org.mybatis.spring.annotation.MapperScan;
  * - 启用 Spring Boot 自动配置
  * - 扫描 MyBatis-Plus Mapper 接口所在包
  */
+@EnableAsync
 @SpringBootApplication
 @MapperScan("com.example.wxnotion.mapper")
 public class WxNotionApplication {

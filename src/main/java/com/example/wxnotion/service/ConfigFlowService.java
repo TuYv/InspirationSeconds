@@ -43,7 +43,7 @@ public class ConfigFlowService {
     state.setUpdatedAt(LocalDateTime.now());
     if (state.getId() == null){
       stateRepo.insert(state);
-    } else{
+    } else {
       stateRepo.updateById(state);
     }
     return "请提供Notion API Key。获取教程：https://developers.notion.com/ 首次发送可直接粘贴Key";
