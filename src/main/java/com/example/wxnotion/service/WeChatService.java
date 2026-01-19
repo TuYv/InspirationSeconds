@@ -1,16 +1,13 @@
 package com.example.wxnotion.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.kefu.WxMpKefuMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
-import me.chanjar.weixin.mp.bean.message.WxMpXmlOutMessage;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import java.util.Objects;
 
 @Slf4j
 @Service
@@ -19,6 +16,7 @@ public class WeChatService {
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
   private final WxMpService wxMpService;
+  private final WeChatService proxyInstance;
 
   /**
    * 微信消息处理入口。
@@ -32,7 +30,7 @@ public class WeChatService {
     // 立即返回空响应，避免超过5秒超时
     log.info("接收到微信消息，开始异步处理。用户: {}, 消息类型: {}", openId, msgType);
 
-    this.processMessageAsync(in, openId, msgType, content);
+    this.proxyInstance.processMessageAsync(in, openId, msgType, content);
   }
 
   /**
@@ -49,7 +47,7 @@ public class WeChatService {
           default -> "暂不支持处理此类消息";
       };
 
-      // 向用户推送处理结果（通过客服消息接口）
+      // 向用户推送处理结果(通过客服消息接口)
       pushMessageToUser(openId, reply);
     } catch (Exception e) {
       log.error("异步处理消息失败，用户: {}", openId, e);
