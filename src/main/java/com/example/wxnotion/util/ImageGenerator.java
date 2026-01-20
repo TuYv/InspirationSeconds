@@ -20,7 +20,7 @@ public class ImageGenerator {
 
     private static final int WIDTH = 800;
     private static final int HEIGHT = 1000;
-    private static final int PADDING = 60;
+    private static final int PADDING = 80;
     // 临时文件目录
     private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 
@@ -61,59 +61,77 @@ public class ImageGenerator {
         g2.drawLine(PADDING, 200, WIDTH - PADDING, 200);
 
         // 5. 正文内容绘制区域
-        int currentY = 400;
+        int currentY = 260;
         int maxTextWidth = WIDTH - 2 * PADDING;
         
-        // --- 5.1 昨日回响 ---
+        // --- 5.1 昨日回响 (左对齐) ---
         if (yesterdaySummary != null && !yesterdaySummary.isEmpty()) {
-            g2.setColor(new Color(30, 30, 30));
-            g2.setFont(new Font("SansSerif", Font.PLAIN, 36));
-            // 绘制内容
-            currentY = drawCenteredWrappedText(g2, yesterdaySummary, WIDTH / 2, currentY, maxTextWidth, 60);
-            currentY += 100; // 段落间距
+            // 标题 (小字号，灰色)
+            g2.setColor(new Color(120, 120, 120));
+            g2.setFont(new Font("Serif", Font.BOLD, 20));
+            g2.drawString("##📝 昨日回响", PADDING, currentY);
+            currentY += 40;
+            
+            // 内容 (标准字号，深灰，左对齐)
+            g2.setColor(new Color(60, 60, 60));
+            g2.setFont(new Font("SansSerif", Font.PLAIN, 26));
+            // 绘制内容 (左对齐绘制)
+            currentY = drawWrappedText(g2, yesterdaySummary, PADDING, currentY, maxTextWidth, 40);
+            currentY += 60; // 段落间距
         }
         
-        // --- 5.2 今日启示 ---
+        // --- 5.2 今日启示 (居中) ---
         if (todayQuote != null && !todayQuote.isEmpty()) {
-            // 内容 (字体稍大)
+            // 标题 (小字号，灰色，居中)
+            g2.setColor(new Color(120, 120, 120));
+            g2.setFont(new Font("Serif", Font.BOLD, 20));
+            FontMetrics fm = g2.getFontMetrics();
+            String title = "##🔮 今日启示";
+            g2.drawString(title, PADDING, currentY);
+            currentY += 60;
+            
+            // 内容 (大字号，黑色，居中)
             g2.setColor(new Color(30, 30, 30));
-            g2.setFont(new Font("SansSerif", Font.ITALIC, 32)); // 斜体更有金句感
+            g2.setFont(new Font("SansSerif", Font.BOLD, 32)); // 加粗
             currentY = drawCenteredWrappedText(g2, todayQuote, WIDTH / 2, currentY, maxTextWidth, 50);
         }
 
-        // 6. 关键词
+        // 6. 底部区域 (左Tag，右二维码+Slogan)
+        int footerY = HEIGHT - 230;
+        
+        // 左下角：Tags
         if (keywords != null && !keywords.isEmpty()) {
             g2.setColor(new Color(100, 100, 150));
-            g2.setFont(new Font("SansSerif", Font.BOLD, 26));
-            FontMetrics fm = g2.getFontMetrics();
-            int kwWidth = fm.stringWidth(keywords);
-            // 放在二维码上方
-            g2.drawString(keywords, (WIDTH - kwWidth) / 2, HEIGHT - 220);
+            g2.setFont(new Font("SansSerif", Font.ITALIC, 24));
+            // 简单处理 Tag 换行或截断 (这里假设 Tag 不会太长)
+            g2.drawString(keywords, PADDING, footerY + 80);
         }
         
-        // 7. 底部二维码
+        // 右下角：二维码 + Slogan
+        int qrSize = 200;
+        int qrX = WIDTH - PADDING - qrSize;
+        int qrY = footerY;
+        
         if (qrCodePath != null) {
              try {
                  File qrFile = new File(qrCodePath);
                  if (qrFile.exists()) {
                      BufferedImage qr = ImageIO.read(qrFile);
-                     int qrSize = 120;
-                     int qrX = (WIDTH - qrSize) / 2;
-                     int qrY = HEIGHT - 180;
                      g2.drawImage(qr, qrX, qrY, qrSize, qrSize, null);
                  }
              } catch (Exception e) {
                  log.warn("二维码加载失败: {}", e.getMessage());
              }
         }
-
-        // 8. Slogan
+        
+        // Slogan (二维码下方)
         g2.setColor(new Color(100, 100, 100));
-        g2.setFont(new Font("Serif", Font.ITALIC, 18));
+        g2.setFont(new Font("Serif", Font.PLAIN, 16));
         String slogan = "捕捉瞬间灵感";
         FontMetrics fm = g2.getFontMetrics();
         int sloganWidth = fm.stringWidth(slogan);
-        g2.drawString(slogan, (WIDTH - sloganWidth) / 2, HEIGHT - 30);
+        // Slogan 居中对齐于二维码
+        g2.drawString(slogan, qrX + (qrSize - sloganWidth) / 2, qrY + qrSize + 25);
 
         g2.dispose();
 
@@ -121,6 +139,30 @@ public class ImageGenerator {
         ImageIO.write(image, "jpg", file);
         log.info("日签图片已生成: {}", file.getAbsolutePath());
         return file;
+    }
+    
+    /**
+     * 左对齐绘制自动换行的文本
+     */
+    private static int drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
+        FontMetrics fm = g2.getFontMetrics();
+        String[] words = text.split(""); 
+        StringBuilder line = new StringBuilder();
+        int curY = y;
+
+        for (String word : words) {
+            if (fm.stringWidth(line + word) < maxWidth) {
+                line.append(word);
+            } else {
+                g2.drawString(line.toString(), x, curY);
+                line = new StringBuilder(word);
+                curY += lineHeight;
+            }
+        }
+        if (line.length() > 0) {
+            g2.drawString(line.toString(), x, curY);
+        }
+        return curY + lineHeight; // 返回下一行的 Y 坐标
     }
     
     /**

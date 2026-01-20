@@ -7,7 +7,9 @@ import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.util.AesUtil;
 import com.example.wxnotion.util.BlockContentParser;
 import com.example.wxnotion.util.ContentUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,17 +20,8 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * 每日 AI 总结服务。
- * 职责：
- * 1. 定时获取 Notion 当日页面内容
- * 2. 调用 AI 进行分析 (TODO: 接入真实 AI)
- * 3. 将总结写回 Notion
- */
 import com.example.wxnotion.util.ImageGenerator;
 import java.io.File;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -40,6 +33,7 @@ public class DailySummaryService {
     private final AiService aiService;
     private final WeChatService weChatService;
     private final WeeklySummaryService weeklySummaryService;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Value("${security.aesKey}")
     private String aesKey;
@@ -67,7 +61,6 @@ public class DailySummaryService {
         // 2. 如果今天是周一，触发周报 (统计过去7天，即上周一至上周日)
         if (LocalDate.now().getDayOfWeek() == DayOfWeek.MONDAY) {
             log.info("今天是周一，开始触发周报任务...");
-            // 为了不阻塞日报，建议这里也 catch 一下，或者 WeeklyService 内部处理了异常
             try {
                 weeklySummaryService.generateWeeklySummaries();
             } catch (Exception e) {
@@ -100,6 +93,26 @@ public class DailySummaryService {
         }
     }
 
+    // 内部类用于承载 AI 解析结果
+    private static class AiDailySummary {
+        public String yesterday_summary;
+        public String emotion_weather;
+        public String subconscious_link;
+        public String today_quote;
+        public String keywords;
+        
+        // 转换为 Markdown 格式用于写入 Notion
+        public String toMarkdown() {
+            StringBuilder sb = new StringBuilder();
+            if (yesterday_summary != null) sb.append("📝 昨日回响\n").append(yesterday_summary).append("\n\n");
+            if (emotion_weather != null) sb.append("🎭 情绪气象台\n").append(emotion_weather).append("\n\n");
+            if (subconscious_link != null) sb.append("💡 潜意识连接\n").append(subconscious_link).append("\n\n");
+            if (today_quote != null) sb.append("🔮 今日启示\n").append(today_quote).append("\n\n");
+            if (keywords != null) sb.append("🏷️ 关键词\n").append(keywords);
+            return sb.toString();
+        }
+    }
+
     private String processUserSummary(UserConfig user, LocalDate targetDate) {
         String apiKey = AesUtil.decrypt(aesKey, user.getEncryptedApiKey());
         String dbId = user.getDatabaseId();
@@ -123,15 +136,20 @@ public class DailySummaryService {
              return "页面无内容";
         }
 
-        // 3. AI 分析
-        String summary = callAiToAnalyze(rawContent);
-
-        // 4. 写回 Notion (写入 Description 属性)
-        boolean success = notionService.updatePageProperty(apiKey, pageId, "Description", summary);
+        // 3. AI 分析 (返回 JSON)
+        String jsonResult = callAiToAnalyze(rawContent);
+        AiDailySummary summaryObj = parseAiResponse(jsonResult);
         
-        // 5. 生成并推送日签图片 (如果配置了微信推送)
+        if (summaryObj == null) {
+            return "AI 分析失败";
+        }
+
+        // 4. 写回 Notion (转换为 Markdown 写入 Description)
+        boolean success = notionService.updatePageProperty(apiKey, pageId, "Description", summaryObj.toMarkdown());
+        
+        // 5. 生成并推送日签图片 (使用解析后的对象)
         try {
-            pushDailyCard(user.getOpenId(), summary);
+            pushDailyCard(user.getOpenId(), summaryObj);
         } catch (Exception e) {
             log.error("日签图片推送失败", e);
         }
@@ -145,20 +163,31 @@ public class DailySummaryService {
     }
     
     /**
-     * 生成并推送日签图片
+     * 解析 AI 返回的 JSON
      */
-    private void pushDailyCard(String openId, String aiSummary) {
-        // 提取各个板块
-        String yesterdaySummary = extractSection(aiSummary, "昨日回响");
-        if (yesterdaySummary.isEmpty()) yesterdaySummary = "昨日平淡而充实，为今天积蓄力量。";
+    private AiDailySummary parseAiResponse(String json) {
+        try {
+            // 清理可能的 Markdown 代码块标记 (```json ... ```)
+            String cleanJson = json.replaceAll("(?s)^```json\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
+            // 有时候 AI 可能会在 ```json 后换行，或者不加 json，只加 ```
+            if (cleanJson.startsWith("```")) {
+                 cleanJson = cleanJson.replaceAll("(?s)^```\\w*\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
+            }
+            return mapper.readValue(cleanJson, AiDailySummary.class);
+        } catch (JsonProcessingException e) {
+            log.error("AI 响应 JSON 解析失败: raw={}", json, e);
+            return null;
+        }
+    }
+
+    /**
+     * 生成并推送日签图片 (基于结构化数据)
+     */
+    private void pushDailyCard(String openId, AiDailySummary summary) {
+        String yesterdaySummary = summary.yesterday_summary != null ? summary.yesterday_summary : "昨日平淡而充实，为今天积蓄力量。";
+        String quote = summary.today_quote != null ? summary.today_quote : "每一天都是新的开始。";
+        String keywords = summary.keywords != null ? summary.keywords : "#每日回响 #InspirationSeconds";
         
-        String quote = extractSection(aiSummary, "今日启示");
-        if (quote.isEmpty()) quote = "每一天都是新的开始。";
-        
-        String keywords = extractSection(aiSummary, "关键词");
-        if (keywords.isEmpty()) keywords = "#每日回响 #InspirationSeconds";
-        
-        // 二维码路径
         String qrCodePath = "src/main/resources/static/images/qrcode.png";
         
         try {
@@ -168,45 +197,24 @@ public class DailySummaryService {
             log.error("图片生成异常", e);
         }
     }
-
-    private String extractSection(String text, String sectionName) {
-        // 匹配模式：
-        // 1. (?m)^.*?sectionName.*?$ : 匹配包含 sectionName 的标题行 (忽略行首符号)
-        // 2. \R\s* : 匹配换行符以及可能存在的空行
-        // 3. (.*?) : 捕获内容 (非贪婪)
-        // 4. (?=...) : 前瞻结束条件 (下一个标题或文本结束)
-        //    下一个标题特征：
-        //    - (?m)^.*?(\p{So}|##) : 行首包含 Emoji (\p{So}) 或 ##
-        
-        Pattern p = Pattern.compile("(?m)^.*?" + Pattern.quote(sectionName) + ".*?$\\R\\s*(.*?)(?=(?m)^.*?(\\p{So}|##)|\\z)", Pattern.DOTALL);
-        
-        Matcher m = p.matcher(text);
-        if (m.find()) {
-            return m.group(1).trim();
-        }
-        return "";
-    }
     
     /**
-     * 调用 AI 进行分析
+     * 调用 AI 进行分析 (强制 JSON)
      */
     private String callAiToAnalyze(String userNotes) {
         String systemPrompt = """
-            你是一个极具洞察力的私人生活助理，你的任务是阅读用户昨天一整天的碎片化笔记，区分其中用户自己的记录或者摘抄的文案, 生成一份“每日回响”日报。
+            你是一个极具洞察力的私人生活助理，你的任务是阅读用户昨天一整天的碎片化笔记，生成一份“每日回响”日报。
             
-            请严格按照以下 Markdown 格式输出（不要包含 Markdown 代码块标记）：
-            📝 昨日回响
-            (用一段话精炼概括昨天发生的主要内容和亮点，字数 100 字以内)
-            🎭 情绪气象台
-            (分析昨天笔记中流露的情绪起伏，给出一个天气隐喻，例如：🌤️ 多云转晴，并简述原因)
-            💡 潜意识连接
-            (尝试找出昨天看似无关的记录之间的潜在联系，或者用户反复提及的主题)
-            🔮 今日启示
-            (基于昨天的状态和经历，为今天给出一个具体的行动建议或一句鼓励的话，开启新的一天 不要超过15个字)
-            🏷️ 关键词
-            (提取2-5个最能代表昨天的关键词，用空格分隔，例如：#阅读 #冥想 #效率)
+            请直接返回标准 JSON 格式数据，不要包含 Markdown 标记，字段定义如下：
+            {
+              "yesterday_summary": "用一段话精炼概括昨天发生的主要内容和亮点，字数 100 字以内",
+              "emotion_weather": "分析情绪起伏，给出一个天气隐喻(如🌤️ 多云转晴)，简述原因。无明显情绪可为空字符串",
+              "subconscious_link": "找出潜在联系或重复主题。无内容可为空字符串",
+              "today_quote": "基于昨天经历，给今天一句鼓励的话(不超过15字)",
+              "keywords": "提取2-5个最能代表昨天的关键词，用空格分隔，如 #阅读 #冥想 #效率"
+            }
             
-            除了昨日回响 其他项在没有明确逻辑的印证时允许为空,即可以没有但是不能不准。
+            只返回 JSON，不要返回其他废话。
             """;
             
         return aiService.chat(systemPrompt, userNotes);
