@@ -170,7 +170,16 @@ public class DailySummaryService {
     }
 
     private String extractSection(String text, String sectionName) {
-        Pattern p = Pattern.compile("## .*?" + sectionName + "\\s*(.*?)(?=##|$)", Pattern.DOTALL);
+        // 匹配模式：
+        // 1. (?m)^.*?sectionName.*?$ : 匹配包含 sectionName 的标题行 (忽略行首符号)
+        // 2. \R\s* : 匹配换行符以及可能存在的空行
+        // 3. (.*?) : 捕获内容 (非贪婪)
+        // 4. (?=...) : 前瞻结束条件 (下一个标题或文本结束)
+        //    下一个标题特征：
+        //    - (?m)^.*?(\p{So}|##) : 行首包含 Emoji (\p{So}) 或 ##
+        
+        Pattern p = Pattern.compile("(?m)^.*?" + Pattern.quote(sectionName) + ".*?$\\R\\s*(.*?)(?=(?m)^.*?(\\p{So}|##)|\\z)", Pattern.DOTALL);
+        
         Matcher m = p.matcher(text);
         if (m.find()) {
             return m.group(1).trim();
@@ -193,7 +202,7 @@ public class DailySummaryService {
             💡 潜意识连接
             (尝试找出昨天看似无关的记录之间的潜在联系，或者用户反复提及的主题)
             🔮 今日启示
-            (基于昨天的状态和经历，为今天给出一个具体的行动建议或一句鼓励的话，开启新的一天)
+            (基于昨天的状态和经历，为今天给出一个具体的行动建议或一句鼓励的话，开启新的一天 不要超过15个字)
             🏷️ 关键词
             (提取2-5个最能代表昨天的关键词，用空格分隔，例如：#阅读 #冥想 #效率)
             
