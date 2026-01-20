@@ -158,14 +158,11 @@ public class DailySummaryService {
         String keywords = extractSection(aiSummary, "关键词");
         if (keywords.isEmpty()) keywords = "#每日回响 #InspirationSeconds";
         
-        // 获取用户头像
-        String avatarUrl = weChatService.getUserAvatarUrl(openId);
-        
         // 二维码路径
         String qrCodePath = "src/main/resources/static/images/qrcode.png";
         
         try {
-            File image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords, avatarUrl, qrCodePath);
+            File image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords, qrCodePath);
             weChatService.pushImageToUser(openId, image);
         } catch (Exception e) {
             log.error("图片生成异常", e);
@@ -198,7 +195,7 @@ public class DailySummaryService {
             🔮 今日启示
             (基于昨天的状态和经历，为今天给出一个具体的行动建议或一句鼓励的话，开启新的一天)
             🏷️ 关键词
-            (提取3-5个最能代表昨天的关键词，用空格分隔，例如：#阅读 #冥想 #效率)
+            (提取2-5个最能代表昨天的关键词，用空格分隔，例如：#阅读 #冥想 #效率)
             
             除了昨日回响 其他项在没有明确逻辑的印证时允许为空,即可以没有但是不能不准。
             """;

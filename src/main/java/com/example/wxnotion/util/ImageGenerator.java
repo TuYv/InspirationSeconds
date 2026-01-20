@@ -29,10 +29,9 @@ public class ImageGenerator {
      * @param yesterdaySummary 昨日回响
      * @param todayQuote 今日启示
      * @param keywords 关键词
-     * @param avatarUrl 用户头像URL
      * @param qrCodePath 公众号二维码本地路径
      */
-    public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords, String avatarUrl, String qrCodePath) throws IOException {
+    public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords, String qrCodePath) throws IOException {
         BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
 
@@ -54,25 +53,7 @@ public class ImageGenerator {
         String weekStr = LocalDate.now().getDayOfWeek().toString();
         g2.drawString(weekStr, PADDING, 160);
         
-        // 头像
-        if (avatarUrl != null && !avatarUrl.isEmpty()) {
-            try {
-                BufferedImage avatar = ImageIO.read(new java.net.URL(avatarUrl));
-                if (avatar != null) {
-                    int avatarSize = 80;
-                    int avatarX = WIDTH - PADDING - avatarSize;
-                    int avatarY = 80;
-                    g2.setClip(new java.awt.geom.Ellipse2D.Float(avatarX, avatarY, avatarSize, avatarSize));
-                    g2.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize, null);
-                    g2.setClip(null);
-                    g2.setColor(Color.LIGHT_GRAY);
-                    g2.setStroke(new BasicStroke(2));
-                    g2.drawOval(avatarX, avatarY, avatarSize, avatarSize);
-                }
-            } catch (Exception e) {
-                log.warn("头像加载失败: {}", e.getMessage());
-            }
-        }
+        // 4. 绘制天气 (右上角，日期右边)
 
         // 4. 分割线
         g2.setColor(new Color(200, 200, 200));
@@ -80,38 +61,20 @@ public class ImageGenerator {
         g2.drawLine(PADDING, 200, WIDTH - PADDING, 200);
 
         // 5. 正文内容绘制区域
-        int currentY = 260;
+        int currentY = 400;
         int maxTextWidth = WIDTH - 2 * PADDING;
         
         // --- 5.1 昨日回响 ---
         if (yesterdaySummary != null && !yesterdaySummary.isEmpty()) {
-            // 标题
-            g2.setColor(new Color(100, 100, 100));
-            g2.setFont(new Font("Serif", Font.BOLD, 22));
-            // 居中绘制标题 "昨日回响"
-            FontMetrics fm = g2.getFontMetrics();
-            String title = "「 昨日回响 」";
-            g2.drawString(title, (WIDTH - fm.stringWidth(title)) / 2, currentY);
-            currentY += 40;
-            
-            // 内容
-            g2.setColor(new Color(60, 60, 60));
-            g2.setFont(new Font("SansSerif", Font.PLAIN, 28));
+            g2.setColor(new Color(30, 30, 30));
+            g2.setFont(new Font("SansSerif", Font.PLAIN, 36));
             // 绘制内容
-            currentY = drawCenteredWrappedText(g2, yesterdaySummary, WIDTH / 2, currentY, maxTextWidth, 40);
-            currentY += 60; // 段落间距
+            currentY = drawCenteredWrappedText(g2, yesterdaySummary, WIDTH / 2, currentY, maxTextWidth, 60);
+            currentY += 100; // 段落间距
         }
         
         // --- 5.2 今日启示 ---
         if (todayQuote != null && !todayQuote.isEmpty()) {
-            // 标题
-            g2.setColor(new Color(100, 100, 100));
-            g2.setFont(new Font("Serif", Font.BOLD, 22));
-            FontMetrics fm = g2.getFontMetrics();
-            String title = "「 今日启示 」";
-            g2.drawString(title, (WIDTH - fm.stringWidth(title)) / 2, currentY);
-            currentY += 40;
-            
             // 内容 (字体稍大)
             g2.setColor(new Color(30, 30, 30));
             g2.setFont(new Font("SansSerif", Font.ITALIC, 32)); // 斜体更有金句感
@@ -147,7 +110,7 @@ public class ImageGenerator {
         // 8. Slogan
         g2.setColor(new Color(100, 100, 100));
         g2.setFont(new Font("Serif", Font.ITALIC, 18));
-        String slogan = "捕捉瞬间灵感，回响生命乐章";
+        String slogan = "捕捉瞬间灵感";
         FontMetrics fm = g2.getFontMetrics();
         int sloganWidth = fm.stringWidth(slogan);
         g2.drawString(slogan, (WIDTH - sloganWidth) / 2, HEIGHT - 30);
