@@ -2,6 +2,7 @@ package com.example.wxnotion.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import me.chanjar.weixin.common.api.WxConsts;
 import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.kefu.WxMpKefuMessage;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
@@ -75,7 +76,7 @@ public class WeChatService implements ApplicationContextAware {
   private String processTextMessage(String openId, String content) {
 
     if (content.startsWith("配置Notion") || content.startsWith("修改Notion配置")
-     || content.startsWith("配置notion") || content.startsWith("修改notion")) {
+     || content.startsWith("配置notion") || content.startsWith("修改notion配置")) {
       // 进入/重置配置流程
       return configFlowService.startOrReset(openId);
     } else if (content.startsWith("查询我的配置")) {
@@ -109,7 +110,7 @@ public class WeChatService implements ApplicationContextAware {
       try {
           // 1. 上传图片到微信服务器 (获得 media_id)
           // "image" 是微信规定的媒体类型
-          WxMediaUploadResult uploadResult = wxMpService.getMaterialService().mediaUpload("image", imageFile);
+          WxMediaUploadResult uploadResult = wxMpService.getMaterialService().mediaUpload(WxConsts.MediaFileType.IMAGE, imageFile);
           String mediaId = uploadResult.getMediaId();
 
           // 2. 构建图片客服消息

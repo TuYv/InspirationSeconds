@@ -173,28 +173,28 @@ public class NotionService {
   }
 
   /**
-   * 查询数据库中标题为今天日期的第一个页面。
+   * 查询数据库中指定日期的页面（按 Title 匹配）。
+   * @param date 目标日期
    * @return Page ID 或 null
    */
-  public String findTodayPage(String apiKey, String databaseId) {
+  public String findPageByDate(String apiKey, String databaseId, LocalDate date) {
     try {
       // 1. 适配多源数据库：获取真实的 Data Source ID
       String realDataSourceId = resolveDataSourceId(apiKey, databaseId);
       if (realDataSourceId == null) {
-          log.warn("无法解析Data Source ID，跳过查询今日页面。ID={}", databaseId);
+          log.warn("无法解析Data Source ID，跳过查询页面。ID={}", databaseId);
           return null;
       }
       
       // 2. 获取 Title 属性名 (用于构造查询 Filter)
-      String titleProp = findTitleProperty(apiKey, databaseId); // 这个方法内部也会解析 ID，稍微有点重复但更安全
+      String titleProp = findTitleProperty(apiKey, databaseId); 
       if (titleProp == null) {
-          log.warn("无法找到Title属性名，跳过查询今日页面");
+          log.warn("无法找到Title属性名，跳过查询页面");
           return null;
       }
 
-      // 3. 构造查询 Filter：Title 属性等于今天的日期字符串
-      LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
-      String dateStr = today.toString(); // "2026-01-18"
+      // 3. 构造查询 Filter：Title 属性等于目标日期字符串
+      String dateStr = date.toString(); // "2026-01-18"
       
       String jsonFilter = "{" +
               "\"filter\": {" +
@@ -204,16 +204,6 @@ public class NotionService {
               "\"page_size\": 1" +
               "}";
               
-      // 注意：查询必须针对 Data Source ID (v1/data_sources/{id}/query)
-      // 但对于旧版 Database，URL 仍然是 v1/databases/{id}/query
-      // 我们统一使用 data_sources 路径查询（新版 API 推荐），或者如果解析出的是旧版 ID，就用 databases
-      
-      // 这里的逻辑稍微复杂：
-      // 如果 databaseId 是 Container ID (2e90...)， realDataSourceId 是 (2e90...-801e...)。
-      // 查询应该发给 v1/data_sources/{realId}/query。
-      // 如果 databaseId 本身就是 Data Source ID (e59e...)，realDataSourceId == databaseId。
-      // 此时也应该发给 v1/data_sources/{realId}/query (因为新版 API 把 query database 废弃了，改为 query data source)。
-      
       HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
           "https://api.notion.com/v1/data_sources/" + realDataSourceId + "/query",
           "POST",
@@ -233,7 +223,7 @@ public class NotionService {
       }
       
       if (!resp.isSuccessful) {
-        log.warn("查询今日页面失败: Code={}, Body={}", resp.code, resp.body);
+        log.warn("查询日期页面失败: Code={}, Body={}", resp.code, resp.body);
         return null;
       }
       
@@ -244,9 +234,17 @@ public class NotionService {
       }
       return null;
     } catch (IOException e) {
-      log.error("查询今日页面异常: {}", e.getMessage(), e);
+      log.error("查询日期页面异常: {}", e.getMessage(), e);
       return null;
     }
+  }
+
+  /**
+   * 查询数据库中标题为今天日期的第一个页面。
+   * (便捷方法)
+   */
+  public String findTodayPage(String apiKey, String databaseId) {
+      return findPageByDate(apiKey, databaseId, LocalDate.now(ZoneId.of("Asia/Shanghai")));
   }
   
   /**
@@ -323,6 +321,49 @@ public class NotionService {
     }
   }
   
+  /**
+   * 获取指定 Page 的属性值（假设为 Rich Text 类型）。
+   * @param propertyName 属性名 (如 "Description")
+   * @return 属性文本内容，若不存在或空则返回空字符串
+   */
+  public String getPageProperty(String apiKey, String pageId, String propertyName) {
+      try {
+          // Notion API: GET /v1/pages/{page_id}/properties/{property_id}
+          // 但我们需要先知道 property_id 吗？
+          // 不一定，可以直接 GET /v1/pages/{page_id} 获取所有属性值。
+          
+          HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+              "https://api.notion.com/v1/pages/" + pageId,
+              "GET",
+              null,
+              buildHeaders(apiKey)
+          ));
+          
+          if (!resp.isSuccessful) return "";
+          
+          JsonNode root = mapper.readTree(resp.body);
+          JsonNode props = root.path("properties");
+          JsonNode targetProp = props.path(propertyName);
+          
+          // 解析 Rich Text
+          if (!targetProp.isMissingNode() && "rich_text".equals(targetProp.path("type").asText())) {
+              JsonNode richTextArr = targetProp.path("rich_text");
+              StringBuilder sb = new StringBuilder();
+              if (richTextArr.isArray()) {
+                  for (JsonNode node : richTextArr) {
+                      sb.append(node.path("plain_text").asText(""));
+                  }
+              }
+              return sb.toString();
+          }
+          
+          return "";
+      } catch (IOException e) {
+          log.error("获取页面属性失败", e);
+          return "";
+      }
+  }
+
   /**
    * 更新页面属性（如 Description）。
    * @param propertyName 属性名 (如 "Description")
