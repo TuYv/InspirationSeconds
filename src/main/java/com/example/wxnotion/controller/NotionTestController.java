@@ -1,5 +1,6 @@
 package com.example.wxnotion.controller;
 
+import com.example.wxnotion.service.DailySummaryService;
 import com.example.wxnotion.service.NotionService;
 import com.example.wxnotion.service.SyncService;
 import com.example.wxnotion.util.ContentUtil;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class NotionTestController {
   private final NotionService notionService;
   private final SyncService syncService;
+  private final DailySummaryService dailySummaryService;
 
   /**
    * 测试1：验证 API Key 与 Data Source ID 是否有效。
@@ -115,6 +117,11 @@ public class NotionTestController {
   public String findTodayPage(@RequestBody CreateRequest req) {
     String pageId = notionService.findTodayPage(req.key, req.id);
     return pageId;
+  }
+
+  @PostMapping("/triggerSummary")
+  public void triggerSummary(@RequestBody CreateRequest req) {
+    dailySummaryService.triggerSummaryForUser(req.openId);
   }
 
   @Data

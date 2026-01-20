@@ -323,6 +323,41 @@ public class NotionService {
     }
   }
   
+  /**
+   * 更新页面属性（如 Description）。
+   * @param propertyName 属性名 (如 "Description")
+   * @param textValue 文本内容
+   */
+  public boolean updatePageProperty(String apiKey, String pageId, String propertyName, String textValue) {
+    try {
+      // 构造 Update Properties Payload
+      // { "properties": { "Description": { "rich_text": [ { "text": { "content": "..." } } ] } } }
+      Map<String, Object> props = new HashMap<>();
+      Map<String, Object> propValue = new HashMap<>();
+      propValue.put("rich_text", Collections.singletonList(new RichText(textValue)));
+      props.put(propertyName, propValue);
+      
+      Map<String, Object> bodyMap = new HashMap<>();
+      bodyMap.put("properties", props);
+      String json = mapper.writeValueAsString(bodyMap);
+
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/pages/" + pageId,
+          "PATCH",
+          json,
+          buildHeaders(apiKey)
+      ));
+      
+      if (!resp.isSuccessful) {
+        log.warn("更新页面属性失败: Code={}, Body={}", resp.code, resp.body);
+      }
+      return resp.isSuccessful;
+    } catch (IOException e) {
+      log.error("更新页面属性异常: {}", e.getMessage(), e);
+      return false;
+    }
+  }
+
   // ... (parseContentToBlocks 保持不变)
 
   /**

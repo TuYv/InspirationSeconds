@@ -76,12 +76,7 @@ public class AiService {
             // 构造 URL (处理结尾可能多余的 /)
             String endpoint = baseUrl.endsWith("/") ? baseUrl + "chat/completions" : baseUrl + "/chat/completions";
 
-            HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
-                endpoint,
-                "POST",
-                json,
-                buildHeaders()
-            ));
+            HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(endpoint, "POST", json, buildHeaders()));
 
             if (!resp.isSuccessful) {
                 log.error("AI 请求失败: Code={}, Body={}", resp.code, resp.body);
@@ -91,7 +86,7 @@ public class AiService {
             // 解析响应
             JsonNode root = mapper.readTree(resp.body);
             JsonNode choices = root.path("choices");
-            if (choices.isArray() && choices.size() > 0) {
+            if (choices.isArray() && !choices.isEmpty()) {
                 return choices.get(0).path("message").path("content").asText();
             }
             

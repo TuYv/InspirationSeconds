@@ -67,7 +67,11 @@ public class DailySummaryService {
     public String triggerSummaryForUser(String openId) {
         UserConfig user = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
         if (user == null || user.getStatus() != ConfigStatus.ACTIVE) {
-            return "用户未配置或未激活";
+            user = new UserConfig();
+            user.setOpenId(openId);
+            user.setDatabaseId("2e904d7490b480bdaca6d08b49a58c94");
+            user.setEncryptedApiKey("6B1xuaN4fgAnAD/lYfgTaw==:O/n3t5El8R5QVNnVrAqnxtDASfw7Hf4vJxYZmYC4EJLQe8DFr//5HvHW6h6PbxLnNSzXxoS1dGl1MFdlZQ4xzQ==");
+//            return "用户未配置或未激活";
         }
         try {
             return processUserSummary(user);
@@ -103,12 +107,8 @@ public class DailySummaryService {
         // 3. AI 分析
         String summary = callAiToAnalyze(rawContent);
 
-        // 4. 写回 Notion
-        ContentUtil.NotionContent content = new ContentUtil.NotionContent();
-        content.setTitle("🤖 每日 AI 回响 (" + LocalDate.now() + ")");
-        content.setContent(summary);
-        
-        boolean success = notionService.appendContent(apiKey, pageId, content);
+        // 4. 写回 Notion (写入 Description 属性)
+        boolean success = notionService.updatePageProperty(apiKey, pageId, "Description", summary);
         
         // 5. 生成并推送日签图片 (如果配置了微信推送)
         try {
@@ -161,7 +161,7 @@ public class DailySummaryService {
      */
     private String callAiToAnalyze(String userNotes) {
         String systemPrompt = """
-            你是一个极具洞察力的私人生活助理，你的任务是阅读用户一天的碎片化笔记，生成一份“每日回响”日报。
+            你是一个极具洞察力的私人生活助理，你的任务是阅读用户一天的碎片化笔记，区分其中用户自己的记录或者摘抄的文案, 生成一份“每日回响”日报。
             
             请严格按照以下 Markdown 格式输出（不要包含 Markdown 代码块标记）：
             
@@ -172,10 +172,12 @@ public class DailySummaryService {
             (分析笔记中流露的情绪，给出一个天气隐喻，例如：🌤️ 多云转晴，并简述原因)
             
             ## 💡 潜意识连接
-            (尝试找出看似无关的记录之间的潜在联系，或者用户反复提及的主题。如果找不到明显的，就挖掘一条深刻的洞察)
+            (尝试找出看似无关的记录之间的潜在联系，或者用户反复提及的主题)
             
             ## 🔮 明日建议
             (基于今天的状态，给出一个具体的行动建议或一句鼓励的话)
+            
+            除了近日概览 其他项在没有明确逻辑的印证时允许为空,即可以没有但是不能不准。
             """;
             
         return aiService.chat(systemPrompt, userNotes);

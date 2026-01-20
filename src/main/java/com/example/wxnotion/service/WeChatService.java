@@ -21,7 +21,6 @@ import java.io.File;
 public class WeChatService implements ApplicationContextAware {
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
-  private final DailySummaryService dailySummaryService;
   private final WxMpService wxMpService;
   private WeChatService proxyInstance;
   private ApplicationContext applicationContext;
@@ -82,9 +81,6 @@ public class WeChatService implements ApplicationContextAware {
     } else if (content.startsWith("查询我的配置")) {
       // 查询当前配置状态
       return configFlowService.queryConfig(openId);
-    } else if (content.equals("生成日报") || content.equals("测试日报")) {
-      // 手动触发日报生成
-      return dailySummaryService.triggerSummaryForUser(openId);
     } else {
       // 若当前处于配置流程，则继续处理；否则执行内容同步
       String flowReply = configFlowService.handleInput(openId, content);
