@@ -148,18 +148,24 @@ public class DailySummaryService {
      * 生成并推送日签图片
      */
     private void pushDailyCard(String openId, String aiSummary) {
-        // 简单的正则提取，尝试从 AI 总结中找到金句和关键词
-        // 这里简化处理：直接取“明日建议”作为金句，取“今日概览”的前几个词作为关键词
-        // 更好的做法是让 AI 直接输出 JSON 格式
+        // 提取各个板块
+        String yesterdaySummary = extractSection(aiSummary, "昨日回响");
+        if (yesterdaySummary.isEmpty()) yesterdaySummary = "昨日平淡而充实，为今天积蓄力量。";
         
         String quote = extractSection(aiSummary, "今日启示");
         if (quote.isEmpty()) quote = "每一天都是新的开始。";
         
-        // 提取关键词 (模拟)
-        String keywords = "#每日回响 #InspirationSeconds";
+        String keywords = extractSection(aiSummary, "关键词");
+        if (keywords.isEmpty()) keywords = "#每日回响 #InspirationSeconds";
+        
+        // 获取用户头像
+        String avatarUrl = weChatService.getUserAvatarUrl(openId);
+        
+        // 二维码路径
+        String qrCodePath = "src/main/resources/static/images/qrcode.png";
         
         try {
-            File image = ImageGenerator.generateDailyCard(quote, keywords);
+            File image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords, avatarUrl, qrCodePath);
             weChatService.pushImageToUser(openId, image);
         } catch (Exception e) {
             log.error("图片生成异常", e);
@@ -191,6 +197,9 @@ public class DailySummaryService {
             (尝试找出昨天看似无关的记录之间的潜在联系，或者用户反复提及的主题)
             🔮 今日启示
             (基于昨天的状态和经历，为今天给出一个具体的行动建议或一句鼓励的话，开启新的一天)
+            🏷️ 关键词
+            (提取3-5个最能代表昨天的关键词，用空格分隔，例如：#阅读 #冥想 #效率)
+            
             除了昨日回响 其他项在没有明确逻辑的印证时允许为空,即可以没有但是不能不准。
             """;
             

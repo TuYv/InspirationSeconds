@@ -26,23 +26,25 @@ public class ImageGenerator {
 
     /**
      * 生成日签图片
-     * @param quote 金句 (AI 总结的核心句子)
-     * @param keywords 关键词 (如 #生活 #记录)
-     * @return 生成的图片文件路径
+     * @param yesterdaySummary 昨日回响
+     * @param todayQuote 今日启示
+     * @param keywords 关键词
+     * @param avatarUrl 用户头像URL
+     * @param qrCodePath 公众号二维码本地路径
      */
-    public static File generateDailyCard(String quote, String keywords) throws IOException {
+    public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords, String avatarUrl, String qrCodePath) throws IOException {
         BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
 
-        // 1. 设置抗锯齿，让文字丝般顺滑
+        // 1. 设置抗锯齿
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // 2. 绘制背景 (米白色，更有纸质感)
+        // 2. 背景
         g2.setColor(new Color(250, 249, 246)); 
         g2.fillRect(0, 0, WIDTH, HEIGHT);
 
-        // 3. 绘制顶部日期
+        // 3. 顶部日期与头像
         g2.setColor(new Color(50, 50, 50));
         g2.setFont(new Font("Serif", Font.BOLD, 48));
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
@@ -51,45 +53,119 @@ public class ImageGenerator {
         g2.setFont(new Font("Serif", Font.PLAIN, 24));
         String weekStr = LocalDate.now().getDayOfWeek().toString();
         g2.drawString(weekStr, PADDING, 160);
+        
+        // 头像
+        if (avatarUrl != null && !avatarUrl.isEmpty()) {
+            try {
+                BufferedImage avatar = ImageIO.read(new java.net.URL(avatarUrl));
+                if (avatar != null) {
+                    int avatarSize = 80;
+                    int avatarX = WIDTH - PADDING - avatarSize;
+                    int avatarY = 80;
+                    g2.setClip(new java.awt.geom.Ellipse2D.Float(avatarX, avatarY, avatarSize, avatarSize));
+                    g2.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize, null);
+                    g2.setClip(null);
+                    g2.setColor(Color.LIGHT_GRAY);
+                    g2.setStroke(new BasicStroke(2));
+                    g2.drawOval(avatarX, avatarY, avatarSize, avatarSize);
+                }
+            } catch (Exception e) {
+                log.warn("头像加载失败: {}", e.getMessage());
+            }
+        }
 
-        // 4. 绘制分割线
+        // 4. 分割线
         g2.setColor(new Color(200, 200, 200));
+        g2.setStroke(new BasicStroke(1));
         g2.drawLine(PADDING, 200, WIDTH - PADDING, 200);
 
-        // 5. 绘制金句 (核心内容)
-        g2.setColor(new Color(30, 30, 30));
-        // 使用无衬线字体，更现代
-        Font quoteFont = new Font("SansSerif", Font.PLAIN, 36);
-        g2.setFont(quoteFont);
+        // 5. 正文内容绘制区域
+        int currentY = 260;
+        int maxTextWidth = WIDTH - 2 * PADDING;
         
-        int currentY = 300;
-        currentY = drawWrappedText(g2, quote, PADDING, currentY, WIDTH - 2 * PADDING, 60);
+        // --- 5.1 昨日回响 ---
+        if (yesterdaySummary != null && !yesterdaySummary.isEmpty()) {
+            // 标题
+            g2.setColor(new Color(100, 100, 100));
+            g2.setFont(new Font("Serif", Font.BOLD, 22));
+            // 居中绘制标题 "昨日回响"
+            FontMetrics fm = g2.getFontMetrics();
+            String title = "「 昨日回响 」";
+            g2.drawString(title, (WIDTH - fm.stringWidth(title)) / 2, currentY);
+            currentY += 40;
+            
+            // 内容
+            g2.setColor(new Color(60, 60, 60));
+            g2.setFont(new Font("SansSerif", Font.PLAIN, 28));
+            // 绘制内容
+            currentY = drawCenteredWrappedText(g2, yesterdaySummary, WIDTH / 2, currentY, maxTextWidth, 40);
+            currentY += 60; // 段落间距
+        }
+        
+        // --- 5.2 今日启示 ---
+        if (todayQuote != null && !todayQuote.isEmpty()) {
+            // 标题
+            g2.setColor(new Color(100, 100, 100));
+            g2.setFont(new Font("Serif", Font.BOLD, 22));
+            FontMetrics fm = g2.getFontMetrics();
+            String title = "「 今日启示 」";
+            g2.drawString(title, (WIDTH - fm.stringWidth(title)) / 2, currentY);
+            currentY += 40;
+            
+            // 内容 (字体稍大)
+            g2.setColor(new Color(30, 30, 30));
+            g2.setFont(new Font("SansSerif", Font.ITALIC, 32)); // 斜体更有金句感
+            currentY = drawCenteredWrappedText(g2, todayQuote, WIDTH / 2, currentY, maxTextWidth, 50);
+        }
 
-        // 6. 绘制关键词 (底部)
-        g2.setColor(new Color(100, 100, 150)); // 淡蓝色
-        g2.setFont(new Font("SansSerif", Font.ITALIC, 28));
-        g2.drawString(keywords, PADDING, HEIGHT - 150);
+        // 6. 关键词
+        if (keywords != null && !keywords.isEmpty()) {
+            g2.setColor(new Color(100, 100, 150));
+            g2.setFont(new Font("SansSerif", Font.BOLD, 26));
+            FontMetrics fm = g2.getFontMetrics();
+            int kwWidth = fm.stringWidth(keywords);
+            // 放在二维码上方
+            g2.drawString(keywords, (WIDTH - kwWidth) / 2, HEIGHT - 220);
+        }
+        
+        // 7. 底部二维码
+        if (qrCodePath != null) {
+             try {
+                 File qrFile = new File(qrCodePath);
+                 if (qrFile.exists()) {
+                     BufferedImage qr = ImageIO.read(qrFile);
+                     int qrSize = 120;
+                     int qrX = (WIDTH - qrSize) / 2;
+                     int qrY = HEIGHT - 180;
+                     g2.drawImage(qr, qrX, qrY, qrSize, qrSize, null);
+                 }
+             } catch (Exception e) {
+                 log.warn("二维码加载失败: {}", e.getMessage());
+             }
+        }
 
-        // 7. 底部品牌落款
-        g2.setColor(new Color(150, 150, 150));
-        g2.setFont(new Font("SansSerif", Font.PLAIN, 20));
-        g2.drawString("Generated by Inspiration Seconds", PADDING, HEIGHT - 60);
+        // 8. Slogan
+        g2.setColor(new Color(100, 100, 100));
+        g2.setFont(new Font("Serif", Font.ITALIC, 18));
+        String slogan = "捕捉瞬间灵感，回响生命乐章";
+        FontMetrics fm = g2.getFontMetrics();
+        int sloganWidth = fm.stringWidth(slogan);
+        g2.drawString(slogan, (WIDTH - sloganWidth) / 2, HEIGHT - 30);
 
         g2.dispose();
 
-        // 保存文件
         File file = new File(TEMP_DIR, "daily_card_" + UUID.randomUUID() + ".jpg");
         ImageIO.write(image, "jpg", file);
         log.info("日签图片已生成: {}", file.getAbsolutePath());
         return file;
     }
-
+    
     /**
-     * 绘制自动换行的文本
+     * 居中绘制自动换行的文本，返回绘制结束后的 Y 坐标
      */
-    private static int drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
+    private static int drawCenteredWrappedText(Graphics2D g2, String text, int centerX, int y, int maxWidth, int lineHeight) {
         FontMetrics fm = g2.getFontMetrics();
-        String[] words = text.split(""); // 按字符分割 (简单处理中文)
+        String[] words = text.split(""); 
         StringBuilder line = new StringBuilder();
         int curY = y;
 
@@ -97,14 +173,19 @@ public class ImageGenerator {
             if (fm.stringWidth(line + word) < maxWidth) {
                 line.append(word);
             } else {
-                g2.drawString(line.toString(), x, curY);
+                String lineStr = line.toString();
+                int lineWidth = fm.stringWidth(lineStr);
+                g2.drawString(lineStr, centerX - lineWidth / 2, curY);
                 line = new StringBuilder(word);
                 curY += lineHeight;
             }
         }
         if (line.length() > 0) {
-            g2.drawString(line.toString(), x, curY);
+            String lineStr = line.toString();
+            int lineWidth = fm.stringWidth(lineStr);
+            g2.drawString(lineStr, centerX - lineWidth / 2, curY);
+            curY += lineHeight; // 加上最后一行的行高
         }
-        return curY + lineHeight;
+        return curY;
     }
 }

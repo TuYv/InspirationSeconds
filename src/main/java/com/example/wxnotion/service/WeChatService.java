@@ -148,6 +148,22 @@ public class WeChatService implements ApplicationContextAware {
       log.error("推送消息给用户失败: {}", e.getMessage(), e);
     }
   }
+  
+  public void sendKefuMessage(String openId, String content) {
+      pushMessageToUser(openId, content);
+  }
+  
+  /**
+   * 获取用户头像 URL
+   */
+  public String getUserAvatarUrl(String openId) {
+      try {
+          return wxMpService.getUserService().userInfo(openId).getHeadImgUrl();
+      } catch (Exception e) {
+          log.warn("获取用户头像失败: {}", e.getMessage());
+          return null;
+      }
+  }
 
   @Override
   public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
