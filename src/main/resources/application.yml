@@ -34,6 +34,6 @@ ai:
   # 默认使用 SiliconFlow (硅基流动) 的 OpenAI 兼容接口
   # 注册地址: https://cloud.siliconflow.cn/ (送大量免费额度)
   base-url: ${AI_BASE_URL:https://api.siliconflow.cn/v1}
-  api-key: ${AI_API_KEY:sk-gcdqchzjtobrfohthcfsuzgtxdywnttbadjkiictlfcbwfrc}
+  api-key: ${AI_API_KEY:sk-0123token}
   # 推荐模型: deepseek-ai/DeepSeek-V3, Qwen/Qwen2.5-7B-Instruct (免费)
-  model: ${AI_MODEL:Pro/deepseek-ai/DeepSeek-V3}
+  model: ${AI_MODEL:Qwen/Qwen2.5-7B-Instruct}
