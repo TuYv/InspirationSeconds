@@ -29,9 +29,8 @@ public class ImageGenerator {
      * @param yesterdaySummary 昨日回响
      * @param todayQuote 今日启示
      * @param keywords 关键词
-     * @param qrCodePath 公众号二维码本地路径
      */
-    public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords, String qrCodePath) throws IOException {
+    public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords) throws IOException {
         BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
 
@@ -112,16 +111,17 @@ public class ImageGenerator {
         int qrX = WIDTH - PADDING - qrSize;
         int qrY = footerY;
         
-        if (qrCodePath != null) {
-             try {
-                 File qrFile = new File(qrCodePath);
-                 if (qrFile.exists()) {
-                     BufferedImage qr = ImageIO.read(qrFile);
-                     g2.drawImage(qr, qrX, qrY, qrSize, qrSize, null);
-                 }
-             } catch (Exception e) {
-                 log.warn("二维码加载失败: {}", e.getMessage());
+        // 使用 ClassLoader 加载二维码资源
+        try {
+             java.net.URL qrCodeUrl = ImageGenerator.class.getClassLoader().getResource("static/images/qrcode.png");
+             if (qrCodeUrl != null) {
+                 BufferedImage qr = ImageIO.read(qrCodeUrl);
+                 g2.drawImage(qr, qrX, qrY, qrSize, qrSize, null);
+             } else {
+                 log.warn("二维码资源未找到");
              }
+        } catch (Exception e) {
+             log.warn("二维码加载失败: {}", e.getMessage());
         }
         
         // Slogan (二维码下方)

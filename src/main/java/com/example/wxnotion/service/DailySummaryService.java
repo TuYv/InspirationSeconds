@@ -43,7 +43,7 @@ public class DailySummaryService {
      * 总结的是前一天的内容
      * 如果今天是周一，还会额外触发周报生成
      */
-    @Scheduled(cron = "0 15 14 * * ?")
+    @Scheduled(cron = "0 0 8 * * ?")
     public void generateDailySummaries() {
         log.info("开始执行每日 AI 总结任务...");
         List<UserConfig> users = userConfigRepository.selectList(new QueryWrapper<UserConfig>().eq("status", ConfigStatus.ACTIVE));
@@ -188,13 +188,23 @@ public class DailySummaryService {
         String quote = summary.today_quote != null ? summary.today_quote : "每一天都是新的开始。";
         String keywords = summary.keywords != null ? summary.keywords : "#每日回响 #InspirationSeconds";
         
-        String qrCodePath = "src/main/resources/static/images/qrcode.png";
-        
+        File image = null;
         try {
-            File image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords, qrCodePath);
+            // 不再传递本地路径字符串，而是让 ImageGenerator 内部自行加载资源
+            image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords);
             weChatService.pushImageToUser(openId, image);
         } catch (Exception e) {
-            log.error("图片生成异常", e);
+            log.error("图片生成或推送异常", e);
+        } finally {
+            // 清理临时文件
+            if (image != null && image.exists()) {
+                boolean deleted = image.delete();
+                if (deleted) {
+                    log.debug("临时图片已清理: {}", image.getName());
+                } else {
+                    log.warn("临时图片清理失败: {}", image.getAbsolutePath());
+                }
+            }
         }
     }
     
@@ -211,7 +221,7 @@ public class DailySummaryService {
               "emotion_weather": "分析情绪起伏，给出一个天气隐喻(如🌤️ 多云转晴)，简述原因。无明显情绪可为空字符串",
               "subconscious_link": "找出潜在联系或重复主题。无内容可为空字符串",
               "today_quote": "基于昨天经历，给今天一句鼓励的话(不超过15字)",
-              "keywords": "提取2-5个最能代表昨天的关键词，用空格分隔，如 #阅读 #冥想 #效率"
+              "keywords": "提取2-3个最能代表昨天的关键词，用空格分隔，如 #阅读 #冥想 #效率"
             }
             
             只返回 JSON，不要返回其他废话。
