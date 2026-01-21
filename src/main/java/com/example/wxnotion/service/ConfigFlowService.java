@@ -46,7 +46,7 @@ public class ConfigFlowService {
     } else {
       stateRepo.updateById(state);
     }
-    return "请提供Notion API Key。获取教程：https://developers.notion.com/ 首次发送可直接粘贴Key";
+    return "请提供Notion API Key。获取教程：https://www.soloship.top/article/2ec04d74-90b4-80c1-bd09-f765845435bc";
   }
 
   /**

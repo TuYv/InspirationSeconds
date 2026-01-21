@@ -96,7 +96,7 @@ public class ImageGenerator {
         }
 
         // 6. 底部区域 (左Tag，右二维码+Slogan)
-        int footerY = HEIGHT - 230;
+        int footerY = HEIGHT - 250;
         
         // 左下角：Tags
         if (keywords != null && !keywords.isEmpty()) {
