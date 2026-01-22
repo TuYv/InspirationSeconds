@@ -62,7 +62,7 @@ public class SyncService {
 
         NotionService.CreateResult result = notionService.createPage(apiKey, cfg.getDatabaseId(), notionContent);
         if (result.ok) {
-          return "今日笔记已创建。\n日期：" + todayStr + "\n内容：" + notionContent.getTitle();
+          return "今日笔记已创建。\n日期：" + todayStr;
         } else {
           return "创建今日笔记失败。请检查数据库配置";
         }
