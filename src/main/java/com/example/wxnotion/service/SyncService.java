@@ -57,24 +57,10 @@ public class SyncService {
       } else {
         // 3. 创建今日新页面 (覆盖 Title 为日期)
         String todayStr = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString();
-        // 保留原内容作为正文的一部分，但 Page Title 设为日期
-        // 为了不丢失解析出的 Title（原消息第一行），我们需要微调 content
-        // 但 createPage 内部使用了 content.getTitle() 作为 Page Title
-        // 所以我们这里构造一个新的 NotionContent
-        ContentUtil.NotionContent dailyContent = new ContentUtil.NotionContent();
-        dailyContent.setTitle(todayStr); // 页面标题：2026-01-18
-        // 正文 = 原标题(第一行) + 原正文
-        String fullBody = "";
-        if (notionContent.getTitle() != null && !notionContent.getTitle().isEmpty()) {
-            fullBody += "**" + notionContent.getTitle() + "**\n";
-        }
-        if (notionContent.getContent() != null) {
-            fullBody += notionContent.getContent();
-        }
-        dailyContent.setContent(fullBody);
-        dailyContent.setTags(notionContent.getTags());
-        
-        NotionService.CreateResult result = notionService.createPage(apiKey, cfg.getDatabaseId(), dailyContent);
+        notionContent.setContent(notionContent.getTitle() + "\n" + notionContent.getContent());
+        notionContent.setTitle(todayStr);
+
+        NotionService.CreateResult result = notionService.createPage(apiKey, cfg.getDatabaseId(), notionContent);
         if (result.ok) {
           return "今日笔记已创建。\n日期：" + todayStr + "\n内容：" + notionContent.getTitle();
         } else {
