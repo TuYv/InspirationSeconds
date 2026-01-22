@@ -24,94 +24,230 @@ public class ImageGenerator {
     // 临时文件目录
     private static final String TEMP_DIR = System.getProperty("java.io.tmpdir");
 
+    // 色彩配置
+    private static final Color BG_COLOR = new Color(0xF9, 0xF7, 0xF2); // 米白色
+    private static final Color TEXT_PRIMARY = new Color(0x33, 0x33, 0x33); // 炭灰
+    private static final Color TEXT_ACCENT = new Color(0xB8, 0x5C, 0x38); // 赤陶色
+    private static final Color TAG_BG = new Color(0xE0, 0xDC, 0xD5); // 标签底色 (加深一点，提高对比度)
+
     /**
-     * 生成日签图片
-     * @param yesterdaySummary 昨日回响
-     * @param todayQuote 今日启示
-     * @param keywords 关键词
+     * 加载字体 (支持降级)
      */
+    private static Font loadFont(String fontFileName, int style, float size) {
+        try {
+            java.net.URL fontUrl = ImageGenerator.class.getClassLoader().getResource("fonts/" + fontFileName);
+            if (fontUrl != null) {
+                Font font = Font.createFont(Font.TRUETYPE_FONT, fontUrl.openStream());
+                return font.deriveFont(style, size);
+            }
+        } catch (Exception e) {
+            log.warn("加载字体 {} 失败，使用默认字体: {}", fontFileName, e.getMessage());
+        }
+        // 降级字体
+        String fallbackName = (style == Font.BOLD) ? "SansSerif" : "Serif";
+        return new Font(fallbackName, style, (int)size);
+    }
+
+    // 辅助方法：多行文字绘制 (左对齐) - 返回实际绘制高度 (支持手动换行符)
+    private static int calculateTextHeight(Graphics2D g, String text, int maxWidth, int lineHeight) {
+        FontMetrics m = g.getFontMetrics();
+        if (text == null || text.isEmpty()) return 0;
+        
+        String[] paragraphs = text.split("\n"); // 先按段落分割
+        int totalLines = 0;
+        
+        for (String paragraph : paragraphs) {
+            if (paragraph.isEmpty()) {
+                totalLines++; // 空行也算一行
+                continue;
+            }
+            String[] words = paragraph.split(""); 
+            StringBuilder currentLine = new StringBuilder();
+            int paragraphLines = 1;
+            
+            for (String word : words) {
+                if (m.stringWidth(currentLine + word) < maxWidth) {
+                    currentLine.append(word);
+                } else {
+                    paragraphLines++;
+                    currentLine = new StringBuilder(word);
+                }
+            }
+            totalLines += paragraphLines;
+        }
+        return totalLines * lineHeight;
+    }
+
     public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords) throws IOException {
         BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
 
-        // 1. 设置抗锯齿
+        // 1. 开启顶级抗锯齿
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-        // 2. 背景
-        g2.setColor(new Color(250, 249, 246)); 
+        // 2. 填充背景
+        g2.setColor(BG_COLOR);
         g2.fillRect(0, 0, WIDTH, HEIGHT);
 
-        // 3. 顶部日期与头像
-        g2.setColor(new Color(50, 50, 50));
-        g2.setFont(new Font("Serif", Font.BOLD, 48));
-        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-        g2.drawString(dateStr, PADDING, 120);
-        
-        g2.setFont(new Font("Serif", Font.PLAIN, 24));
-        String weekStr = LocalDate.now().getDayOfWeek().toString();
-        g2.drawString(weekStr, PADDING, 160);
-        
-        // 4. 绘制天气 (右上角，日期右边)
+        // 加载字体
+        Font titleFont = loadFont("NotoSerifSC-Bold.otf", Font.BOLD, 140);
+        Font subTitleFont = loadFont("Roboto-Regular.ttf", Font.PLAIN, 24); 
+        Font sectionTitleFont = loadFont("NotoSerifSC-Bold.otf", Font.BOLD, 18); 
+        Font bodyFont = loadFont("NotoSerifSC-Regular.otf", Font.PLAIN, 28);
+        Font quoteFont = loadFont("NotoSerifSC-Bold.otf", Font.PLAIN, 48);
+        Font tagFont = loadFont("NotoSerifSC-Regular.otf", Font.PLAIN, 20);
 
-        // 4. 分割线
-        g2.setColor(new Color(200, 200, 200));
-        g2.setStroke(new BasicStroke(1));
-        g2.drawLine(PADDING, 200, WIDTH - PADDING, 200);
+        // --- 绘制头部 ---
+        int cursorY = 150;
+        int margin = 60;
+        int maxTextWidth = WIDTH - margin * 2;
 
-        // 5. 正文内容绘制区域
-        int currentY = 260;
-        int maxTextWidth = WIDTH - 2 * PADDING;
+        // 大日历数字 "22"
+        LocalDate now = LocalDate.now();
+        g2.setColor(TEXT_ACCENT);
+        g2.setFont(titleFont);
+        g2.drawString(String.valueOf(now.getDayOfMonth()), margin, cursorY);
         
-        // --- 5.1 昨日回响 (左对齐) ---
+        // 年月星期
+        g2.setColor(TEXT_PRIMARY);
+        g2.setFont(subTitleFont);
+        String yearMonth = now.format(DateTimeFormatter.ofPattern("yyyy.MM"));
+        String dayOfWeek = now.getDayOfWeek().toString();
+        g2.drawString(yearMonth + " / " + dayOfWeek, margin + 180, cursorY);
+
+        // --- 绘制分割线 ---
+        cursorY += 60;
+        g2.setColor(new Color(0, 0, 0, 30)); // 极淡的分割线
+        g2.drawLine(margin, cursorY, WIDTH - margin, cursorY);
+
+        // --- 绘制昨日回响 ---
+        cursorY += 50;
+        drawSectionTitle(g2, "昨日回响 / REVIEW", margin, cursorY, sectionTitleFont);
+        
+        cursorY += 50;
         if (yesterdaySummary != null && !yesterdaySummary.isEmpty()) {
-            // 标题 (小字号，灰色)
-            g2.setColor(new Color(120, 120, 120));
-            g2.setFont(new Font("Serif", Font.BOLD, 20));
-            g2.drawString("##📝 昨日回响", PADDING, currentY);
-            currentY += 40;
-            
-            // 内容 (标准字号，深灰，左对齐)
-            g2.setColor(new Color(60, 60, 60));
-            g2.setFont(new Font("SansSerif", Font.PLAIN, 26));
-            // 绘制内容 (左对齐绘制)
-            currentY = drawWrappedText(g2, yesterdaySummary, PADDING, currentY, maxTextWidth, 40);
-            currentY += 60; // 段落间距
-        }
-        
-        // --- 5.2 今日启示 (居中) ---
-        if (todayQuote != null && !todayQuote.isEmpty()) {
-            // 标题 (小字号，灰色，居中)
-            g2.setColor(new Color(120, 120, 120));
-            g2.setFont(new Font("Serif", Font.BOLD, 20));
-            FontMetrics fm = g2.getFontMetrics();
-            String title = "##🔮 今日启示";
-            g2.drawString(title, PADDING, currentY);
-            currentY += 60;
-            
-            // 内容 (大字号，黑色，居中)
-            g2.setColor(new Color(30, 30, 30));
-            g2.setFont(new Font("SansSerif", Font.BOLD, 32)); // 加粗
-            currentY = drawCenteredWrappedText(g2, todayQuote, WIDTH / 2, currentY, maxTextWidth, 50);
+            g2.setColor(TEXT_PRIMARY);
+            g2.setFont(bodyFont);
+            cursorY = drawMultilineText(g2, yesterdaySummary, margin, cursorY, maxTextWidth, 50);
         }
 
-        // 6. 底部区域 (左Tag，右二维码+Slogan)
-        int footerY = HEIGHT - 250;
+        // --- 绘制今日启示 (重点区域) ---
+        cursorY += 50; // 增加间距
         
-        // 左下角：Tags
+        // 清洗引言内容
+        String cleanQuote = (todayQuote != null) ? todayQuote.replaceAll("[“”\"']", "").trim() : "";
+        
+        // 动态调整字体大小和高度
+        // 目标：确保底部至少留出 140px (120px for QR + 20px buffer)
+        int minBottomSpace = 140;
+        int maxHeight = HEIGHT - cursorY - minBottomSpace;
+        
+        int currentQuoteFontSize = 48;
+        int quoteLineHeight = 65;
+        int textHeight = 0;
+        
+        // 自适应循环：如果高度不够，就缩小字体
+        while (currentQuoteFontSize >= 24) {
+            // 重新计算行高 (大概是字号的 1.4 倍)
+            quoteLineHeight = (int)(currentQuoteFontSize * 1.4);
+            
+            // 检查是否有单行宽度超出 (禁止自动换行模式下)
+            boolean widthOverflow = false;
+            String[] lines = cleanQuote.split("\n");
+            g2.setFont(quoteFont.deriveFont((float)currentQuoteFontSize));
+            FontMetrics fm = g2.getFontMetrics();
+            int maxAllowedWidth = maxTextWidth - 60;
+            
+            for (String line : lines) {
+                if (fm.stringWidth(line) > maxAllowedWidth) {
+                    widthOverflow = true;
+                }
+            }
+            
+            // 计算高度 (这里依然保留 calculateTextHeight 以防万一 AI 没换行但内容实在太长触发了自动换行)
+            textHeight = calculateTextHeight(g2, cleanQuote, maxAllowedWidth, quoteLineHeight);
+            
+            // 卡片高度 = 文字高度 + 140px (上下padding)
+            int requiredCardHeight = textHeight + 140;
+            
+            // 核心判断：
+            // 1. 高度必须在允许范围内
+            // 2. 宽度不能溢出 (因为我们希望完全遵从 AI 的换行，不希望单行被自动折断)
+            if (!widthOverflow && (requiredCardHeight <= maxHeight || requiredCardHeight <= 240)) {
+                break;
+            }
+            currentQuoteFontSize -= 2; // 每次缩小 2px
+        }
+        quoteFont = quoteFont.deriveFont((float)currentQuoteFontSize);
+        g2.setFont(quoteFont);
+        
+        int cardHeight = Math.max(240, textHeight + 140);
+        
+        // 1. 绘制引言卡片阴影
+        g2.setColor(new Color(0, 0, 0, 15));
+        g2.fillRoundRect(margin + 5, cursorY + 5, maxTextWidth, cardHeight, 20, 20);
+
+        // 2. 绘制引言卡片背景
+        g2.setColor(new Color(255, 255, 255));
+        g2.fillRoundRect(margin, cursorY, maxTextWidth, cardHeight, 20, 20);
+        
+        // 3. 绘制装饰性巨型引号
+        g2.setColor(new Color(0xE0, 0xE0, 0xE0));
+        g2.setFont(new Font("Georgia", Font.BOLD, 120)); 
+        g2.drawString("“", margin + 20, cursorY + 100); 
+        
+        // 4. 绘制引言内容
+        if (!cleanQuote.isEmpty()) {
+            g2.setColor(TEXT_PRIMARY);
+            g2.setFont(quoteFont); // 使用最终确定的大小的字体
+            int quoteY = cursorY + 110;
+            drawCenteredWrappedText(g2, cleanQuote, WIDTH / 2, quoteY, maxTextWidth - 60, quoteLineHeight);
+        }
+
+        // --- 底部：标签与二维码 ---
+        int bottomY = HEIGHT - 120;
+
+        // 绘制标签 (Pill shape)
         if (keywords != null && !keywords.isEmpty()) {
-            g2.setColor(new Color(100, 100, 150));
-            g2.setFont(new Font("SansSerif", Font.ITALIC, 24));
-            // 简单处理 Tag 换行或截断 (这里假设 Tag 不会太长)
-            g2.drawString(keywords, PADDING, footerY + 80);
+            String[] tags = keywords.split(" ");
+            int tagX = margin;
+            g2.setFont(tagFont);
+            FontMetrics fmTag = g2.getFontMetrics();
+            int tagAscent = fmTag.getAscent();
+
+            for (String tag : tags) {
+                if (tag.isEmpty()) continue;
+                String cleanTag = tag.startsWith("#") ? tag : "#" + tag;
+
+                int textWidth = fmTag.stringWidth(cleanTag);
+                int padding = 20;
+                int tagHeight = 44;
+
+                // 检查是否超出二维码区域左侧 (简单保护)
+                if (tagX + textWidth + padding * 2 > WIDTH - margin - 120) {
+                    break; // 空间不足，停止绘制标签
+                }
+
+                // 标签背景
+                g2.setColor(TAG_BG);
+                g2.fillRoundRect(tagX, bottomY - tagHeight + 10, textWidth + padding * 2, tagHeight, tagHeight, tagHeight);
+
+                // 标签文字
+                g2.setColor(new Color(0x55, 0x55, 0x55));
+                int textY = (bottomY - tagHeight + 10) + (tagHeight - fmTag.getHeight()) / 2 + tagAscent;
+                g2.drawString(cleanTag, tagX + padding, textY + 2);
+
+                tagX += textWidth + padding * 2 + 15;
+            }
         }
         
-        // 右下角：二维码 + Slogan
-        int qrSize = 200;
-        int qrX = WIDTH - PADDING - qrSize;
-        int qrY = footerY;
+        // 绘制二维码
+        int qrSize = 100; 
+        int qrX = WIDTH - margin - qrSize; 
+        int qrY = HEIGHT - 180;
         
-        // 使用 ClassLoader 加载二维码资源
         try {
              java.net.URL qrCodeUrl = ImageGenerator.class.getClassLoader().getResource("static/images/qrcode.png");
              if (qrCodeUrl != null) {
@@ -124,9 +260,9 @@ public class ImageGenerator {
              log.warn("二维码加载失败: {}", e.getMessage());
         }
         
-        // Slogan (二维码下方)
-        g2.setColor(new Color(100, 100, 100));
-        g2.setFont(new Font("Serif", Font.PLAIN, 16));
+        // 扫码文字
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 12)); 
+        g2.setColor(Color.GRAY);
         String slogan = "捕捉瞬间灵感";
         FontMetrics fm = g2.getFontMetrics();
         int sloganWidth = fm.stringWidth(slogan);
@@ -141,55 +277,82 @@ public class ImageGenerator {
         return file;
     }
     
-    /**
-     * 左对齐绘制自动换行的文本
-     */
-    private static int drawWrappedText(Graphics2D g2, String text, int x, int y, int maxWidth, int lineHeight) {
-        FontMetrics fm = g2.getFontMetrics();
-        String[] words = text.split(""); 
-        StringBuilder line = new StringBuilder();
+    // 辅助方法：绘制小标题
+    private static void drawSectionTitle(Graphics2D g2, String title, int x, int y, Font font) {
+        g2.setColor(new Color(0x99, 0x99, 0x99)); // 浅灰色标题
+        g2.setFont(font);
+        // Java原生Graphics2D调整字间距比较麻烦，这里简单绘制
+        g2.drawString(title, x, y);
+    }
+    
+    // 辅助方法：多行文字绘制 (左对齐) - 支持换行符
+    private static int drawMultilineText(Graphics2D g, String text, int x, int y, int maxWidth, int lineHeight) {
+        FontMetrics m = g.getFontMetrics();
+        if (text == null || text.isEmpty()) return y;
+        
+        String[] paragraphs = text.split("\n"); // 按段落分割
         int curY = y;
-
-        for (String word : words) {
-            if (fm.stringWidth(line + word) < maxWidth) {
-                line.append(word);
-            } else {
-                g2.drawString(line.toString(), x, curY);
-                line = new StringBuilder(word);
+        
+        for (String paragraph : paragraphs) {
+            if (paragraph.isEmpty()) {
+                curY += lineHeight; // 空行
+                continue;
+            }
+            String[] words = paragraph.split(""); 
+            StringBuilder currentLine = new StringBuilder();
+            
+            for (String word : words) {
+                if (m.stringWidth(currentLine + word) < maxWidth) {
+                    currentLine.append(word);
+                } else {
+                    g.drawString(currentLine.toString(), x, curY);
+                    curY += lineHeight;
+                    currentLine = new StringBuilder(word);
+                }
+            }
+            if (currentLine.length() > 0) {
+                g.drawString(currentLine.toString(), x, curY);
                 curY += lineHeight;
             }
         }
-        if (line.length() > 0) {
-            g2.drawString(line.toString(), x, curY);
-        }
-        return curY + lineHeight; // 返回下一行的 Y 坐标
+        return curY;
     }
     
     /**
-     * 居中绘制自动换行的文本，返回绘制结束后的 Y 坐标
+     * 居中绘制自动换行的文本 (支持换行符)
      */
     private static int drawCenteredWrappedText(Graphics2D g2, String text, int centerX, int y, int maxWidth, int lineHeight) {
         FontMetrics fm = g2.getFontMetrics();
-        String[] words = text.split(""); 
-        StringBuilder line = new StringBuilder();
+        if (text == null || text.isEmpty()) return y;
+        
+        String[] paragraphs = text.split("\n");
         int curY = y;
-
-        for (String word : words) {
-            if (fm.stringWidth(line + word) < maxWidth) {
-                line.append(word);
-            } else {
-                String lineStr = line.toString();
+        
+        for (String paragraph : paragraphs) {
+            if (paragraph.isEmpty()) {
+                curY += lineHeight;
+                continue;
+            }
+            String[] words = paragraph.split(""); 
+            StringBuilder currentLine = new StringBuilder();
+    
+            for (String word : words) {
+                if (fm.stringWidth(currentLine + word) < maxWidth) {
+                    currentLine.append(word);
+                } else {
+                    String lineStr = currentLine.toString();
+                    int lineWidth = fm.stringWidth(lineStr);
+                    g2.drawString(lineStr, centerX - lineWidth / 2, curY);
+                    currentLine = new StringBuilder(word);
+                    curY += lineHeight;
+                }
+            }
+            if (currentLine.length() > 0) {
+                String lineStr = currentLine.toString();
                 int lineWidth = fm.stringWidth(lineStr);
                 g2.drawString(lineStr, centerX - lineWidth / 2, curY);
-                line = new StringBuilder(word);
-                curY += lineHeight;
+                curY += lineHeight; 
             }
-        }
-        if (line.length() > 0) {
-            String lineStr = line.toString();
-            int lineWidth = fm.stringWidth(lineStr);
-            g2.drawString(lineStr, centerX - lineWidth / 2, curY);
-            curY += lineHeight; // 加上最后一行的行高
         }
         return curY;
     }
