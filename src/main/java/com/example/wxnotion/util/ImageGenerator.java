@@ -88,7 +88,7 @@ public class ImageGenerator {
         g2.setFont(subTitleFont);
         String yearMonth = now.format(DateTimeFormatter.ofPattern("yyyy.MM"));
         String dayOfWeek = now.getDayOfWeek().toString();
-        g2.drawString(yearMonth + " / " + dayOfWeek, margin + 200, cursorY);
+        g2.drawString(yearMonth + " / " + dayOfWeek, margin + 180, cursorY);
 
         // --- 绘制分割线 ---
         cursorY += 50;
@@ -122,14 +122,14 @@ public class ImageGenerator {
         int quoteLineHeight = 65;
         //总字体高度
         int textHeight = 0;
-        
+
+        List<String> lineList = Arrays.stream(cleanQuote.split("\n")).filter(StringUtils::isNotBlank).toList();
         // 自适应循环：如果高度不够，就缩小字体
         while (currentQuoteFontSize >= 24) {
             // 重新计算行高 (大概是字号的 1.4 倍)
             quoteLineHeight = (int)(currentQuoteFontSize * 1.4);
-            
+
             // 检查是否有单行宽度超出 (禁止自动换行模式下)
-            List<String> lineList = Arrays.stream(cleanQuote.split("\n")).filter(StringUtils::isNotBlank).toList();
             FontMetrics fm = g2.getFontMetrics();
             int maxAllowedWidth = maxTextWidth - 60;
             //判断是否有单行宽度超出
@@ -165,7 +165,7 @@ public class ImageGenerator {
             g2.setColor(TEXT_PRIMARY);
             g2.setFont(quoteFont); // 使用最终确定的大小的字体
             int quoteY = cursorY + 110;
-            drawCenteredWrappedText(g2, cleanQuote, WIDTH / 2, quoteY, maxTextWidth - 60, quoteLineHeight);
+            drawCenteredWrappedText(g2, lineList, quoteY, quoteLineHeight);
         }
 
         // --- 底部：标签与二维码 ---
@@ -257,20 +257,18 @@ public class ImageGenerator {
         
         for (String paragraph : paragraphs) {
             if (paragraph.isEmpty()) {
-                curY += lineHeight; // 空行
                 continue;
             }
             String[] words = paragraph.split(""); 
             StringBuilder currentLine = new StringBuilder();
             
             for (String word : words) {
-                if (m.stringWidth(currentLine + word) < maxWidth) {
-                    currentLine.append(word);
-                } else {
+                if (m.stringWidth(currentLine + word) >= maxWidth) {
                     g.drawString(currentLine.toString(), x, curY);
                     curY += lineHeight;
-                    currentLine = new StringBuilder(word);
+                    currentLine = new StringBuilder();
                 }
+                currentLine.append(word);
             }
             if (currentLine.length() > 0) {
                 g.drawString(currentLine.toString(), x, curY);
@@ -281,40 +279,19 @@ public class ImageGenerator {
     }
     
     /**
-     * 居中绘制自动换行的文本 (支持换行符)
+     * 居中绘制自动换行的文本
      */
-    private static int drawCenteredWrappedText(Graphics2D g2, String text, int centerX, int y, int maxWidth, int lineHeight) {
+    private static void drawCenteredWrappedText(Graphics2D g2, List<String> text, int curY, int lineHeight) {
         FontMetrics fm = g2.getFontMetrics();
-        if (text == null || text.isEmpty()) return y;
-        
-        String[] paragraphs = text.split("\n");
-        int curY = y;
-        
-        for (String paragraph : paragraphs) {
-            if (paragraph.isEmpty()) {
-                continue;
+        for (int i = 0; i < text.size(); i++) {
+            String paragraph = text.get(i);
+            int lineWidth = fm.stringWidth(paragraph);
+            if ( i + 1 == text.size()) {
+                g2.drawString(paragraph, WIDTH - lineWidth - 20, curY);
+            } else {
+                g2.drawString(paragraph, (WIDTH - lineWidth) / 2, curY);
             }
-            String[] words = paragraph.split(""); 
-            StringBuilder currentLine = new StringBuilder();
-    
-            for (String word : words) {
-                if (fm.stringWidth(currentLine + word) < maxWidth) {
-                    currentLine.append(word);
-                } else {
-                    String lineStr = currentLine.toString();
-                    int lineWidth = fm.stringWidth(lineStr);
-                    g2.drawString(lineStr, centerX - lineWidth / 2, curY);
-                    currentLine = new StringBuilder(word);
-                    curY += lineHeight;
-                }
-            }
-            if (currentLine.length() > 0) {
-                String lineStr = currentLine.toString();
-                int lineWidth = fm.stringWidth(lineStr);
-                g2.drawString(lineStr, centerX - lineWidth / 2, curY);
-                curY += lineHeight; 
-            }
+            curY += lineHeight;
         }
-        return curY;
     }
 }
