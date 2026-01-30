@@ -74,23 +74,16 @@ public class DailySummaryService {
      * @param openId 用户 OpenID
      * @return 执行结果消息
      */
-    public String triggerSummaryForUser(String openId) {
-        UserConfig user = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
-        if (user == null || user.getStatus() != ConfigStatus.ACTIVE) {
-            user = new UserConfig();
-            user.setOpenId(openId);
-            user.setDatabaseId("2e904d7490b480bdaca6d08b49a58c94");
-            user.setEncryptedApiKey("6B1xuaN4fgAnAD/lYfgTaw==:O/n3t5El8R5QVNnVrAqnxtDASfw7Hf4vJxYZmYC4EJLQe8DFr//5HvHW6h6PbxLnNSzXxoS1dGl1MFdlZQ4xzQ==");
-//            return "用户未配置或未激活";
-        }
+    public String triggerSummaryForUser(String yesterdaySummary, String quote,String keywords) {
         try {
             // 手动触发：默认总结今天 (方便立即看效果)
             // 或者你可以改为总结昨天，看需求。这里暂定为今天。
-            return processUserSummary(user, LocalDate.now());
+            ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords);
         } catch (Exception e) {
             log.error("手动触发总结失败", e);
             return "生成失败: " + e.getMessage();
         }
+        return "生成成功";
     }
 
     // 内部类用于承载 AI 解析结果

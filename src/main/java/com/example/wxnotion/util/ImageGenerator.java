@@ -1,6 +1,7 @@
 package com.example.wxnotion.util;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -9,6 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -48,36 +51,6 @@ public class ImageGenerator {
         return new Font(fallbackName, style, (int)size);
     }
 
-    // 辅助方法：多行文字绘制 (左对齐) - 返回实际绘制高度 (支持手动换行符)
-    private static int calculateTextHeight(Graphics2D g, String text, int maxWidth, int lineHeight) {
-        FontMetrics m = g.getFontMetrics();
-        if (text == null || text.isEmpty()) return 0;
-        
-        String[] paragraphs = text.split("\n"); // 先按段落分割
-        int totalLines = 0;
-        
-        for (String paragraph : paragraphs) {
-            if (paragraph.isEmpty()) {
-                totalLines++; // 空行也算一行
-                continue;
-            }
-            String[] words = paragraph.split(""); 
-            StringBuilder currentLine = new StringBuilder();
-            int paragraphLines = 1;
-            
-            for (String word : words) {
-                if (m.stringWidth(currentLine + word) < maxWidth) {
-                    currentLine.append(word);
-                } else {
-                    paragraphLines++;
-                    currentLine = new StringBuilder(word);
-                }
-            }
-            totalLines += paragraphLines;
-        }
-        return totalLines * lineHeight;
-    }
-
     public static File generateDailyCard(String yesterdaySummary, String todayQuote, String keywords) throws IOException {
         BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2 = image.createGraphics();
@@ -115,10 +88,10 @@ public class ImageGenerator {
         g2.setFont(subTitleFont);
         String yearMonth = now.format(DateTimeFormatter.ofPattern("yyyy.MM"));
         String dayOfWeek = now.getDayOfWeek().toString();
-        g2.drawString(yearMonth + " / " + dayOfWeek, margin + 180, cursorY);
+        g2.drawString(yearMonth + " / " + dayOfWeek, margin + 200, cursorY);
 
         // --- 绘制分割线 ---
-        cursorY += 60;
+        cursorY += 50;
         g2.setColor(new Color(0, 0, 0, 30)); // 极淡的分割线
         g2.drawLine(margin, cursorY, WIDTH - margin, cursorY);
 
@@ -134,7 +107,6 @@ public class ImageGenerator {
         }
 
         // --- 绘制今日启示 (重点区域) ---
-        cursorY += 50; // 增加间距
         
         // 清洗引言内容
         String cleanQuote = (todayQuote != null) ? todayQuote.replaceAll("[“”\"']", "").trim() : "";
@@ -142,10 +114,13 @@ public class ImageGenerator {
         // 动态调整字体大小和高度
         // 目标：确保底部至少留出 140px (120px for QR + 20px buffer)
         int minBottomSpace = 140;
+        //当前可剩余的空间
         int maxHeight = HEIGHT - cursorY - minBottomSpace;
-        
+        //当前字体
         int currentQuoteFontSize = 48;
+        //字体行高
         int quoteLineHeight = 65;
+        //总字体高度
         int textHeight = 0;
         
         // 自适应循环：如果高度不够，就缩小字体
@@ -154,28 +129,15 @@ public class ImageGenerator {
             quoteLineHeight = (int)(currentQuoteFontSize * 1.4);
             
             // 检查是否有单行宽度超出 (禁止自动换行模式下)
-            boolean widthOverflow = false;
-            String[] lines = cleanQuote.split("\n");
-            g2.setFont(quoteFont.deriveFont((float)currentQuoteFontSize));
+            List<String> lineList = Arrays.stream(cleanQuote.split("\n")).filter(StringUtils::isNotBlank).toList();
             FontMetrics fm = g2.getFontMetrics();
             int maxAllowedWidth = maxTextWidth - 60;
+            //判断是否有单行宽度超出
+            boolean widthOverflow = lineList.stream().map(fm::stringWidth).anyMatch(w -> w > maxAllowedWidth);
+            // 计算高度
+            textHeight = lineList.size() * quoteLineHeight + 140;
             
-            for (String line : lines) {
-                if (fm.stringWidth(line) > maxAllowedWidth) {
-                    widthOverflow = true;
-                }
-            }
-            
-            // 计算高度 (这里依然保留 calculateTextHeight 以防万一 AI 没换行但内容实在太长触发了自动换行)
-            textHeight = calculateTextHeight(g2, cleanQuote, maxAllowedWidth, quoteLineHeight);
-            
-            // 卡片高度 = 文字高度 + 140px (上下padding)
-            int requiredCardHeight = textHeight + 140;
-            
-            // 核心判断：
-            // 1. 高度必须在允许范围内
-            // 2. 宽度不能溢出 (因为我们希望完全遵从 AI 的换行，不希望单行被自动折断)
-            if (!widthOverflow && (requiredCardHeight <= maxHeight || requiredCardHeight <= 240)) {
+            if (!widthOverflow && (textHeight <= maxHeight || textHeight <= 240)) {
                 break;
             }
             currentQuoteFontSize -= 2; // 每次缩小 2px
@@ -183,7 +145,7 @@ public class ImageGenerator {
         quoteFont = quoteFont.deriveFont((float)currentQuoteFontSize);
         g2.setFont(quoteFont);
         
-        int cardHeight = Math.max(240, textHeight + 140);
+        int cardHeight = Math.max(200, textHeight);
         
         // 1. 绘制引言卡片阴影
         g2.setColor(new Color(0, 0, 0, 15));
@@ -207,7 +169,7 @@ public class ImageGenerator {
         }
 
         // --- 底部：标签与二维码 ---
-        int bottomY = HEIGHT - 120;
+        int bottomY = HEIGHT - 140;
 
         // 绘制标签 (Pill shape)
         if (keywords != null && !keywords.isEmpty()) {
@@ -232,11 +194,11 @@ public class ImageGenerator {
 
                 // 标签背景
                 g2.setColor(TAG_BG);
-                g2.fillRoundRect(tagX, bottomY - tagHeight + 10, textWidth + padding * 2, tagHeight, tagHeight, tagHeight);
+                g2.fillRoundRect(tagX, bottomY, textWidth + padding * 2, tagHeight, tagHeight, tagHeight);
 
                 // 标签文字
                 g2.setColor(new Color(0x55, 0x55, 0x55));
-                int textY = (bottomY - tagHeight + 10) + (tagHeight - fmTag.getHeight()) / 2 + tagAscent;
+                int textY = (bottomY) + (tagHeight - fmTag.getHeight()) / 2 + tagAscent;
                 g2.drawString(cleanTag, tagX + padding, textY + 2);
 
                 tagX += textWidth + padding * 2 + 15;
@@ -246,7 +208,7 @@ public class ImageGenerator {
         // 绘制二维码
         int qrSize = 100; 
         int qrX = WIDTH - margin - qrSize; 
-        int qrY = HEIGHT - 180;
+        int qrY = HEIGHT - 140;
         
         try {
              java.net.URL qrCodeUrl = ImageGenerator.class.getClassLoader().getResource("static/images/qrcode.png");
@@ -330,7 +292,6 @@ public class ImageGenerator {
         
         for (String paragraph : paragraphs) {
             if (paragraph.isEmpty()) {
-                curY += lineHeight;
                 continue;
             }
             String[] words = paragraph.split(""); 

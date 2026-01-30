@@ -4,6 +4,7 @@ import com.example.wxnotion.service.DailySummaryService;
 import com.example.wxnotion.service.NotionService;
 import com.example.wxnotion.service.SyncService;
 import com.example.wxnotion.util.ContentUtil;
+import com.example.wxnotion.util.ImageGenerator;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -121,7 +122,7 @@ public class NotionTestController {
 
   @PostMapping("/triggerSummary")
   public void triggerSummary(@RequestBody CreateRequest req) {
-    dailySummaryService.triggerSummaryForUser(req.openId);
+    dailySummaryService.triggerSummaryForUser(req.yesterdaySummary, req.quote, req.keywords);
   }
 
   @Data
@@ -130,5 +131,8 @@ public class NotionTestController {
     public String id;
     public String openId;
     public String content;
+    private String yesterdaySummary;
+    private String quote;
+    private String keywords;
   }
 }
