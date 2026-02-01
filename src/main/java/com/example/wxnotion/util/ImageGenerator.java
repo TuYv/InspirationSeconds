@@ -73,8 +73,8 @@ public class ImageGenerator {
         Font tagFont = loadFont("NotoSerifSC-Regular.otf", Font.PLAIN, 20);
 
         // --- 绘制头部 ---
-        int cursorY = 150;
-        int margin = 60;
+        int cursorY = 130;
+        int margin = 40;
         int maxTextWidth = WIDTH - margin * 2;
 
         // 大日历数字 "22"
@@ -91,15 +91,15 @@ public class ImageGenerator {
         g2.drawString(yearMonth + " / " + dayOfWeek, margin + 180, cursorY);
 
         // --- 绘制分割线 ---
-        cursorY += 50;
+        cursorY += 40;
         g2.setColor(new Color(0, 0, 0, 30)); // 极淡的分割线
         g2.drawLine(margin, cursorY, WIDTH - margin, cursorY);
 
         // --- 绘制昨日回响 ---
-        cursorY += 50;
+        cursorY += 40;
         drawSectionTitle(g2, "昨日回响 / REVIEW", margin, cursorY, sectionTitleFont);
         
-        cursorY += 50;
+        cursorY += 40;
         if (yesterdaySummary != null && !yesterdaySummary.isEmpty()) {
             g2.setColor(TEXT_PRIMARY);
             g2.setFont(bodyFont);
@@ -135,7 +135,7 @@ public class ImageGenerator {
             //判断是否有单行宽度超出
             boolean widthOverflow = lineList.stream().map(fm::stringWidth).anyMatch(w -> w > maxAllowedWidth);
             // 计算高度
-            textHeight = lineList.size() * quoteLineHeight + 140;
+            textHeight = lineList.size() * quoteLineHeight + 110;
             
             if (!widthOverflow && (textHeight <= maxHeight || textHeight <= 240)) {
                 break;
@@ -229,7 +229,7 @@ public class ImageGenerator {
         FontMetrics fm = g2.getFontMetrics();
         int sloganWidth = fm.stringWidth(slogan);
         // Slogan 居中对齐于二维码
-        g2.drawString(slogan, qrX + (qrSize - sloganWidth) / 2, qrY + qrSize + 25);
+        g2.drawString(slogan, qrX + (qrSize - sloganWidth) / 2, qrY + qrSize + 20);
 
         g2.dispose();
 
@@ -287,7 +287,7 @@ public class ImageGenerator {
             String paragraph = text.get(i);
             int lineWidth = fm.stringWidth(paragraph);
             if ( i + 1 == text.size()) {
-                g2.drawString(paragraph, WIDTH - lineWidth - 20, curY);
+                g2.drawString(paragraph, WIDTH - lineWidth - 50, curY);
             } else {
                 g2.drawString(paragraph, (WIDTH - lineWidth) / 2, curY);
             }

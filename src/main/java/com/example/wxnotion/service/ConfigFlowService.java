@@ -24,6 +24,7 @@ public class ConfigFlowService {
   private final ConversationStateRepository stateRepo;
   private final UserConfigRepository configRepo;
   private final NotionService notionService;
+  private final MigrationService migrationService; // 新增注入
 
   @Value("${security.aesKey}")
   private String aesKey;
@@ -79,13 +80,20 @@ public class ConfigFlowService {
         // 保存配置并结束流程
         UserConfig cfg = configRepo.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
         if (cfg == null) cfg = new UserConfig();
-        cfg.setOpenId(openId);
-        cfg.setAppType(NoteAppType.NOTION);
-        cfg.setStatus(ConfigStatus.ACTIVE);
-        cfg.setEncryptedApiKey(AesUtil.encrypt(aesKey, apiKey));
-        cfg.setDatabaseId(databaseId);
-        cfg.setUpdatedAt(LocalDateTime.now());
-        if (cfg.getId() == null) configRepo.insert(cfg); else configRepo.updateById(cfg);
+        
+        // 检查是否为访客转正
+        if (Boolean.TRUE.equals(cfg.getIsGuest())) {
+            // 触发异步迁移
+            migrationService.startMigration(cfg, apiKey, databaseId);
+            
+            // 清理状态
+            state.setStep(ConfigStep.NONE);
+            state.setTempApiKey(null);
+            state.setUpdatedAt(LocalDateTime.now());
+            stateRepo.updateById(state);
+            
+            return "配置验证通过！系统检测到您有历史数据，正在后台为您进行全量迁移，请留意后续通知。";
+        }
         state.setStep(ConfigStep.NONE);
         state.setTempApiKey(null);
         state.setUpdatedAt(LocalDateTime.now());

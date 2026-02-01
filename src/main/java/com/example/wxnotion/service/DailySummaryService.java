@@ -6,7 +6,6 @@ import com.example.wxnotion.model.ConfigStatus;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.util.AesUtil;
 import com.example.wxnotion.util.BlockContentParser;
-import com.example.wxnotion.util.ContentUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +30,7 @@ public class DailySummaryService {
     private final UserConfigRepository userConfigRepository;
     private final NotionService notionService;
     private final AiService aiService;
-    private final WeChatService weChatService;
+    private final HandlerWxPortalService handlerWxPortalService;
     private final WeeklySummaryService weeklySummaryService;
     private final PromptOptimizationService promptOptimizationService;
     private final PromptManager promptManager;
@@ -191,7 +190,7 @@ public class DailySummaryService {
         try {
             // 不再传递本地路径字符串，而是让 ImageGenerator 内部自行加载资源
             image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords);
-            weChatService.pushImageToUser(openId, image);
+            handlerWxPortalService.pushImageToUser(openId, image);
         } catch (Exception e) {
             log.error("图片生成或推送异常", e);
         } finally {

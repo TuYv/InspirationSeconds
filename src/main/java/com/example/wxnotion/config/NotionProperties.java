@@ -10,4 +10,10 @@ import org.springframework.stereotype.Component;
 public class NotionProperties {
   /** Notion API 版本号（请求头 Notion-Version） */
   private String version;
+
+  /** 管理员 Token (用于访客模式) */
+  private String adminToken;
+
+  /** 访客工作区根页面 ID */
+  private String guestRootPageId;
 }

@@ -9,7 +9,6 @@ import com.example.wxnotion.util.ContentUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -33,7 +32,7 @@ public class WeeklySummaryService {
     private final UserConfigRepository userConfigRepository;
     private final NotionService notionService;
     private final AiService aiService;
-    private final WeChatService weChatService; // 如果需要推微信
+    private final WechatService wechatService;
 
     @Value("${security.aesKey}")
     private String aesKey;
@@ -103,7 +102,7 @@ public class WeeklySummaryService {
             NotionService.CreateResult result = notionService.createPage(apiKey, dbId, content);
             if (result.ok) {
                 // 4. 推送微信通知
-                weChatService.sendKefuMessage(user.getOpenId(), "本周周报已生成：\n" + title);
+                wechatService.pushMessageToUser(user.getOpenId(), "本周周报已生成：\n" + title);
                 return "周报生成成功";
             }
         } catch (Exception e) {

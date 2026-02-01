@@ -19,16 +19,18 @@ import java.io.File;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class WeChatService implements ApplicationContextAware {
+public class HandlerWxPortalService implements ApplicationContextAware {
+
   private final ConfigFlowService configFlowService;
   private final SyncService syncService;
   private final WxMpService wxMpService;
-  private WeChatService proxyInstance;
+  private final WechatService wechatService;
+  private HandlerWxPortalService proxyInstance;
   private ApplicationContext applicationContext;
 
-  private WeChatService getThis() {
+  private HandlerWxPortalService getThis() {
     if (proxyInstance == null) {
-      proxyInstance = applicationContext.getBean(WeChatService.class);
+      proxyInstance = applicationContext.getBean(HandlerWxPortalService.class);
     }
     return proxyInstance;
   }
@@ -62,18 +64,18 @@ public class WeChatService implements ApplicationContextAware {
       };
 
       // 向用户推送处理结果(通过客服消息接口)
-      pushMessageToUser(openId, reply);
+      wechatService.pushMessageToUser(openId, reply);
     } catch (Exception e) {
       log.error("异步处理消息失败，用户: {}", openId, e);
       // 出错时也推送错误信息给用户
-      pushMessageToUser(openId, "处理您的消息时出现错误，请稍后重试");
+      wechatService.pushMessageToUser(openId, "处理您的消息时出现错误，请稍后重试");
     }
   }
 
   /**
    * 处理文本消息
    */
-  private String processTextMessage(String openId, String content) {
+  public String processTextMessage(String openId, String content) {
 
     if (content.startsWith("配置Notion") || content.startsWith("修改Notion配置")
      || content.startsWith("配置notion") || content.startsWith("修改notion配置")) {
@@ -126,42 +128,7 @@ public class WeChatService implements ApplicationContextAware {
 
       } catch (Exception e) {
           log.error("推送图片给用户失败: {}", e.getMessage(), e);
-          pushMessageToUser(openId, "日签图片生成失败，请稍后重试");
-      }
-  }
-
-  /**
-   * 推送消息给用户（使用客服消息接口）
-   */
-  public void pushMessageToUser(String openId, String content) {
-    try {
-      // 使用客服消息接口向用户推送消息
-      WxMpKefuMessage kefuMsg = WxMpKefuMessage.TEXT()
-              .toUser(openId)
-              .content(content)
-              .build();
-      wxMpService.getKefuService().sendKefuMessage(kefuMsg);
-
-      log.info("消息已推送给用户: {}, 内容: {}", openId, content);
-
-    } catch (Exception e) {
-      log.error("推送消息给用户失败: {}", e.getMessage(), e);
-    }
-  }
-  
-  public void sendKefuMessage(String openId, String content) {
-      pushMessageToUser(openId, content);
-  }
-  
-  /**
-   * 获取用户头像 URL
-   */
-  public String getUserAvatarUrl(String openId) {
-      try {
-          return wxMpService.getUserService().userInfo(openId).getHeadImgUrl();
-      } catch (Exception e) {
-          log.warn("获取用户头像失败: {}", e.getMessage());
-          return null;
+          wechatService.pushMessageToUser(openId, "日签图片生成失败，请稍后重试");
       }
   }
 

@@ -36,5 +36,15 @@ public class UserConfig {
   @TableField(typeHandler = JacksonTypeHandler.class)
   private PromptConfig promptConfig;
   
+  /**
+   * 是否为访客用户
+   */
+  private Boolean isGuest;
+
+  /**
+   * 迁移状态: NONE, MIGRATING, DONE, FAILED
+   */
+  private String migrationStatus;
+  
   private LocalDateTime updatedAt;
 }

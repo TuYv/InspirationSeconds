@@ -2,21 +2,18 @@ package com.example.wxnotion.controller;
 
 import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.message.WxMpXmlMessage;
-import me.chanjar.weixin.mp.bean.message.WxMpXmlOutMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-import com.example.wxnotion.service.WeChatService;
+import com.example.wxnotion.service.HandlerWxPortalService;
 import org.apache.commons.lang3.StringUtils;
-
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/wx/portal")
 @RequiredArgsConstructor
 public class WxPortalController {
   private final WxMpService wxService;
-  private final WeChatService weChatService;
+  private final HandlerWxPortalService handlerWxPortalService;
 
   /**
    * 微信服务器验证：原样返回 `echostr` 表示验证通过。
@@ -50,7 +47,7 @@ public class WxPortalController {
     WxMpXmlMessage inMessage = StringUtils.isNotBlank(msgSignature)
         ? WxMpXmlMessage.fromEncryptedXml(xml, wxService.getWxMpConfigStorage(), timestamp, nonce, msgSignature)
         : WxMpXmlMessage.fromXml(xml);
-    weChatService.handle(inMessage);
+    handlerWxPortalService.handle(inMessage);
     return null;
   }
 }

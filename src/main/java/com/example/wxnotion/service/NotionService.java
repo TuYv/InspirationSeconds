@@ -484,6 +484,159 @@ public class NotionService {
     return null;
   }
 
+  /**
+   * 创建新的数据库 (用于访客模式)
+   * @param apiKey Admin Token
+   * @param parentPageId 父页面 ID (Guest_Workspace)
+   * @param title 数据库标题 (e.g. NoteBox_OpenId)
+   * @return 创建成功的数据库 ID，失败返回 null
+   */
+  public String createDatabase(String apiKey, String parentPageId, String title) {
+      try {
+          Map<String, Object> payload = new HashMap<>();
+          
+          // Parent
+          Map<String, String> parent = new HashMap<>();
+          parent.put("type", "page_id");
+          parent.put("page_id", parentPageId);
+          payload.put("parent", parent);
+          
+          // Title
+          payload.put("title", Collections.singletonList(new RichText(title)));
+          
+          // Properties
+          Map<String, Object> properties = new LinkedHashMap<>();
+          
+          // 1. Name (Title)
+          properties.put("Name", Map.of("title", Map.of()));
+          
+          // 2. Created time
+          properties.put("Created time", Map.of("created_time", Map.of()));
+
+          // 3. Date
+          properties.put("Date", Map.of("date", Map.of()));
+
+          // 4. Description (RichText)
+          properties.put("Description", Map.of("rich_text", Map.of()));
+
+          // 5. Last edited time
+          properties.put("Last edited time", Map.of("last_edited_time", Map.of()));
+
+          // 6. Status (Status)
+          // API 要求: "status": {}  (不能带 options)
+          properties.put("Status", Map.of("status", Map.of()));
+
+          // 7. Title (RichText) - Extra text property
+          properties.put("Title", Map.of("rich_text", Map.of()));
+          
+          payload.put("properties", properties);
+          
+          String json = mapper.writeValueAsString(payload);
+          log.info("Create Database Payload: {}", json);
+          
+          Map<String, String> headers = new HashMap<>();
+          headers.put("Authorization", "Bearer " + apiKey);
+          headers.put("Notion-Version", "2022-06-28"); // 强制使用已知可用版本
+          headers.put("Content-Type", "application/json");
+          
+          HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+              "https://api.notion.com/v1/databases",
+              "POST",
+              json,
+              headers
+          ));
+          
+          if (!resp.isSuccessful) {
+              log.error("创建数据库失败: Code={}, Body={}", resp.code, resp.body);
+              return null;
+          }
+          
+          JsonNode root = mapper.readTree(resp.body);
+          return root.path("id").asText(null);
+      } catch (IOException e) {
+          log.error("创建数据库异常: {}", e.getMessage(), e);
+          return null;
+      }
+  }
+
+  /**
+   * 分页查询数据库所有页面 (用于数据迁移)
+   * @param cursor 分页游标 (传 null 为第一页)
+   * @return 查询结果 (Results Node + Next Cursor)
+   */
+  public QueryResult queryDatabase(String apiKey, String databaseId, String cursor) {
+      try {
+          String realDataSourceId = resolveDataSourceId(apiKey, databaseId);
+          Map<String, Object> body = new HashMap<>();
+          body.put("page_size", 50); // 每次取 50 条
+          if (cursor != null) {
+              body.put("start_cursor", cursor);
+          }
+          // 按创建时间升序，保证迁移顺序
+          Map<String, String> sort = new HashMap<>();
+          sort.put("timestamp", "created_time");
+          sort.put("direction", "ascending");
+          body.put("sorts", Collections.singletonList(sort));
+          
+          String json = mapper.writeValueAsString(body);
+
+          HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+              "https://api.notion.com/v1/data_sources/" + realDataSourceId + "/query",
+              "POST",
+              json,
+              buildHeaders(apiKey)
+          ));
+          
+          if (!resp.isSuccessful) {
+              log.warn("查询数据库失败: {}", resp.body);
+              return null;
+          }
+          
+          JsonNode root = mapper.readTree(resp.body);
+          JsonNode results = root.path("results");
+          String nextCursor = root.path("next_cursor").asText(null);
+          boolean hasMore = root.path("has_more").asBoolean(false);
+          
+          return new QueryResult(results, nextCursor, hasMore);
+      } catch (IOException e) {
+          log.error("查询数据库异常", e);
+          return null;
+      }
+  }
+  
+  /**
+   * 更新数据库 (用于归档重命名)
+   */
+  public boolean updateDatabase(String apiKey, String databaseId, String newTitle) {
+      try {
+          Map<String, Object> payload = new HashMap<>();
+          payload.put("title", Collections.singletonList(new RichText(newTitle)));
+          // payload.put("archived", true); // 可选：直接归档
+          
+          String json = mapper.writeValueAsString(payload);
+          
+          HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+              "https://api.notion.com/v1/databases/" + databaseId,
+              "PATCH",
+              json,
+              buildHeaders(apiKey)
+          ));
+          
+          return resp.isSuccessful;
+      } catch (IOException e) {
+          log.error("更新数据库失败", e);
+          return false;
+      }
+  }
+
+  @lombok.Data
+  @lombok.AllArgsConstructor
+  public static class QueryResult {
+      private JsonNode results;
+      private String nextCursor;
+      private boolean hasMore;
+  }
+  
   /** 创建页面结果模型 */
   public static class CreateResult {
     public final boolean ok;
@@ -496,3 +649,4 @@ public class NotionService {
     }
   }
 }
+
