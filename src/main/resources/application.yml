@@ -29,6 +29,8 @@ security:
 
 notion:
   version: ${NOTION_VERSION:2025-09-03}
+  adminToken: ${NOTION_ADMIN_TOKEN:admin_token}
+  guestRootPageId: ${NOTION_GUEST_ROOT_PAGE_ID:pageId}
 
 ai:
   # 默认使用 SiliconFlow (硅基流动) 的 OpenAI 兼容接口
