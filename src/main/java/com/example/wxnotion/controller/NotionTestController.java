@@ -120,9 +120,13 @@ public class NotionTestController {
     return pageId;
   }
 
+  @PostMapping("/generateDailyCard")
+  public void generateDailyCard(@RequestBody CreateRequest req) throws IOException {
+    ImageGenerator.generateDailyCard(req.yesterdaySummary, req.quote, req.keywords);
+  }
   @PostMapping("/triggerSummary")
   public void triggerSummary(@RequestBody CreateRequest req) {
-    dailySummaryService.triggerSummaryForUser(req.yesterdaySummary, req.quote, req.keywords);
+    dailySummaryService.triggerSummaryForUser(req.getOpenId());
   }
 
   @Data

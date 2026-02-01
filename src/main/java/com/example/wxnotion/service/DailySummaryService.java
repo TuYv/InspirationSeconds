@@ -33,6 +33,9 @@ public class DailySummaryService {
     private final AiService aiService;
     private final WeChatService weChatService;
     private final WeeklySummaryService weeklySummaryService;
+    private final PromptOptimizationService promptOptimizationService;
+    private final PromptManager promptManager;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Value("${security.aesKey}")
@@ -71,19 +74,22 @@ public class DailySummaryService {
     
     /**
      * 手动触发指定用户的总结 (用于测试)
-     * @param openId 用户 OpenID
      * @return 执行结果消息
      */
-    public String triggerSummaryForUser(String yesterdaySummary, String quote,String keywords) {
+    public String triggerSummaryForUser(String openId) {
+        UserConfig user = new UserConfig();
+        user.setOpenId(openId);
+        user.setDatabaseId("2e904d7490b480bdaca6d08b49a58c94");
+        user.setEncryptedApiKey("6B1xuaN4fgAnAD/lYfgTaw==:O/n3t5El8R5QVNnVrAqnxtDASfw7Hf4vJxYZmYC4EJLQe8DFr//5HvHW6h6PbxLnNSzXxoS1dGl1MFdlZQ4xzQ==");
+
         try {
             // 手动触发：默认总结今天 (方便立即看效果)
             // 或者你可以改为总结昨天，看需求。这里暂定为今天。
-            ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords);
+            return processUserSummary(user, LocalDate.now());
         } catch (Exception e) {
             log.error("手动触发总结失败", e);
             return "生成失败: " + e.getMessage();
         }
-        return "生成成功";
     }
 
     // 内部类用于承载 AI 解析结果
@@ -106,14 +112,14 @@ public class DailySummaryService {
         }
     }
 
-    private String processUserSummary(UserConfig user, LocalDate targetDate) {
-        String apiKey = AesUtil.decrypt(aesKey, user.getEncryptedApiKey());
-        String dbId = user.getDatabaseId();
+    private String processUserSummary(UserConfig userConfig, LocalDate targetDate) {
+        String apiKey = AesUtil.decrypt(aesKey, userConfig.getEncryptedApiKey());
+        String dbId = userConfig.getDatabaseId();
 
         // 1. 找到目标日期的页面
         String pageId = notionService.findPageByDate(apiKey, dbId, targetDate);
         if (pageId == null) {
-            log.info("用户 {} 在 {} 无页面，跳过总结", user.getOpenId(), targetDate);
+            log.info("用户 {} 在 {} 无页面，跳过总结", userConfig.getOpenId(), targetDate);
             return "该日期无页面";
         }
 
@@ -125,12 +131,12 @@ public class DailySummaryService {
         
         String rawContent = BlockContentParser.parse(blocks);
         if (rawContent.trim().isEmpty()) {
-             log.info("用户 {} 今日页面无有效内容", user.getOpenId());
+             log.info("用户 {} 今日页面无有效内容", userConfig.getOpenId());
              return "页面无内容";
         }
 
         // 3. AI 分析 (返回 JSON)
-        String jsonResult = callAiToAnalyze(rawContent);
+        String jsonResult = callAiToAnalyze(userConfig, rawContent);
         AiDailySummary summaryObj = parseAiResponse(jsonResult);
         
         if (summaryObj == null) {
@@ -142,13 +148,13 @@ public class DailySummaryService {
         
         // 5. 生成并推送日签图片 (使用解析后的对象)
         try {
-            pushDailyCard(user.getOpenId(), summaryObj);
+            pushDailyCard(userConfig.getOpenId(), summaryObj);
         } catch (Exception e) {
             log.error("日签图片推送失败", e);
         }
 
         if (success) {
-            log.info("用户 {} 总结已生成并写入 Notion", user.getOpenId());
+            log.info("用户 {} 总结已生成并写入 Notion", userConfig.getOpenId());
             return "总结生成成功，日签图片已推送";
         } else {
             return "写入 Notion 失败";
@@ -203,23 +209,23 @@ public class DailySummaryService {
     
     /**
      * 调用 AI 进行分析 (强制 JSON)
+     * 集成了动态 Prompt 优化机制
      */
-    private String callAiToAnalyze(String userNotes) {
-        String systemPrompt = """
-            你是一个极具洞察力的私人生活助理，你的任务是阅读用户昨天一整天的碎片化笔记，生成一份“每日回响”日报。
-            
-            请直接返回标准 JSON 格式数据，不要包含 Markdown 标记，字段定义如下：
-            {
-              "yesterday_summary": "用一段话精炼概括昨天发生的主要内容和亮点，字数 100 字以内",
-              "emotion_weather": "分析情绪起伏，给出一个天气隐喻(如🌤️ 多云转晴)，简述原因。无明显情绪可为空字符串",
-              "subconscious_link": "找出潜在联系或重复主题。无内容可为空字符串",
-              "today_quote": "基于昨天经历，从经典名著/诗句/动漫/影视剧/歌曲中找出一句符合场景的一句话并给出出处，你需要做好断句给好换行",
-              "keywords": "提取2-5个最能代表昨天的关键词，用空格分隔，如 #阅读 #冥想 #效率"
+    private String callAiToAnalyze(UserConfig userConfig, String userNotes) {
+        // 1. 尝试优化 Prompt (预检查 + 优化)
+        try {
+            boolean optimized = promptOptimizationService.optimizePromptIfNecessary(userConfig, userNotes);
+            if (optimized) {
+                log.info("用户 {} 的 Prompt 已根据今日内容动态优化", userConfig.getOpenId());
             }
+        } catch (Exception e) {
+            log.warn("Prompt 优化流程出现异常，将使用现有配置继续: {}", e.getMessage());
+        }
+
+        // 2. 组装最终的 System Prompt
+        String systemPrompt = promptManager.assembleSystemPrompt(userConfig);
             
-            只返回 JSON，不要返回其他废话。
-            """;
-            
+        // 3. 调用 AI
         return aiService.chat(systemPrompt, userNotes);
     }
 }
