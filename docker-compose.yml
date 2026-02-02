@@ -22,5 +22,7 @@ services:
       AI_BASE_URL: ${AI_BASE_URL}
       AI_API_KEY: ${AI_API_KEY}
       AI_MODEL: ${AI_MODEL}
+      NOTION_ADMIN_TOKEN: ${NOTION_ADMIN_TOKEN}
+      NOTION_GUEST_ROOT_PAGE_ID: ${NOTION_GUEST_ROOT_PAGE_ID}
     extra_hosts:
       - "host.docker.internal:host-gateway"
