@@ -122,8 +122,7 @@ public class SyncService {
       String apiKey = notionProperties.getAdminToken();
       String rootPageId = notionProperties.getGuestRootPageId();
       if (apiKey != null && rootPageId != null) {
-          String suffix = openId.length() > 6 ? openId.substring(openId.length() - 6) : openId;
-          String dbId = notionService.createDatabase(apiKey, rootPageId, "NoteBox_" + suffix);
+          String dbId = notionService.createDatabase(apiKey, rootPageId, "GuestBox_" + openId);
           user.setDatabaseId(dbId);
       }
       
