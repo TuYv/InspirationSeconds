@@ -74,11 +74,7 @@ public class DailySummaryService {
      * 手动触发指定用户的总结 (用于测试)
      * @return 执行结果消息
      */
-    public String triggerSummaryForUser(String openId) {
-        UserConfig user = new UserConfig();
-        user.setOpenId(openId);
-        user.setDatabaseId("2e904d7490b480bdaca6d08b49a58c94");
-        user.setEncryptedApiKey("6B1xuaN4fgAnAD/lYfgTaw==:O/n3t5El8R5QVNnVrAqnxtDASfw7Hf4vJxYZmYC4EJLQe8DFr//5HvHW6h6PbxLnNSzXxoS1dGl1MFdlZQ4xzQ==");
+    public String triggerSummaryForUser(UserConfig user) {
 
         try {
             // 手动触发：默认总结今天 (方便立即看效果)

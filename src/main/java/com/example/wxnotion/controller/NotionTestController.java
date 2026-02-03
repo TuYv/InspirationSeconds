@@ -1,5 +1,6 @@
 package com.example.wxnotion.controller;
 
+import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.service.DailySummaryService;
 import com.example.wxnotion.service.NotionService;
 import com.example.wxnotion.service.SyncService;
@@ -126,13 +127,19 @@ public class NotionTestController {
   }
   @PostMapping("/triggerSummary")
   public void triggerSummary(@RequestBody CreateRequest req) {
-    dailySummaryService.triggerSummaryForUser(req.getOpenId());
+    UserConfig user = new UserConfig();
+    user.setOpenId(req.getOpenId());
+    user.setDatabaseId(req.getDbId());
+    user.setEncryptedApiKey(req.getEncryptedApiKey());
+    dailySummaryService.triggerSummaryForUser(user);
   }
 
   @Data
   public static class CreateRequest {
     public String key;
     public String id;
+    public String dbId;
+    public String encryptedApiKey;
     public String openId;
     public String content;
     private String yesterdaySummary;
