@@ -6,6 +6,7 @@ import com.example.wxnotion.model.ConfigStatus;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.util.AesUtil;
 import com.example.wxnotion.util.BlockContentParser;
+import com.example.wxnotion.util.ImageGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,12 +16,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
-
-import com.example.wxnotion.util.ImageGenerator;
-import java.io.File;
 
 @Slf4j
 @Service
@@ -30,7 +29,7 @@ public class DailySummaryService {
     private final UserConfigRepository userConfigRepository;
     private final NotionService notionService;
     private final AiService aiService;
-    private final HandlerWxPortalService handlerWxPortalService;
+    private final WechatService weChatService;
     private final WeeklySummaryService weeklySummaryService;
     private final PromptOptimizationService promptOptimizationService;
     private final PromptManager promptManager;
@@ -45,7 +44,7 @@ public class DailySummaryService {
      * 总结的是前一天的内容
      * 如果今天是周一，还会额外触发周报生成
      */
-    @Scheduled(cron = "0 0 8 * * ?")
+    @Scheduled(cron = "0 0 10 * * ?")
     public void generateDailySummaries() {
         log.info("开始执行每日 AI 总结任务...");
         List<UserConfig> users = userConfigRepository.selectList(new QueryWrapper<UserConfig>().eq("status", ConfigStatus.ACTIVE));
@@ -190,7 +189,7 @@ public class DailySummaryService {
         try {
             // 不再传递本地路径字符串，而是让 ImageGenerator 内部自行加载资源
             image = ImageGenerator.generateDailyCard(yesterdaySummary, quote, keywords);
-            handlerWxPortalService.pushImageToUser(openId, image);
+            weChatService.pushImageToUser(openId, image);
         } catch (Exception e) {
             log.error("图片生成或推送异常", e);
         } finally {
