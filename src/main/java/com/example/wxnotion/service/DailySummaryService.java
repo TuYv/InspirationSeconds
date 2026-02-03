@@ -44,7 +44,7 @@ public class DailySummaryService {
      * 总结的是前一天的内容
      * 如果今天是周一，还会额外触发周报生成
      */
-    @Scheduled(cron = "0 0 10 * * ?")
+    @Scheduled(cron = "0 0 8 * * ?")
     public void generateDailySummaries() {
         log.info("开始执行每日 AI 总结任务...");
         List<UserConfig> users = userConfigRepository.selectList(new QueryWrapper<UserConfig>().eq("status", ConfigStatus.ACTIVE));
