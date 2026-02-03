@@ -48,15 +48,15 @@ public class PromptManager {
         PromptConfig promptConfig = userConfig.getPromptConfig();
 
         // 组装 JSON 结构描述 (如果用户配置为空，使用默认值)
-        String summaryRole = Optional.ofNullable(promptConfig.getSummaryRole()).orElse(DEFAULT_SUMMARY_ROLE) + FIXED_PART_1_ROLE;
+        String summaryRole = Optional.ofNullable(promptConfig).map(PromptConfig::getSummaryRole).orElse(DEFAULT_SUMMARY_ROLE) + FIXED_PART_1_ROLE;
         StringBuilder jsonSchemaBuilder = new StringBuilder();
         jsonSchemaBuilder.append("{\n");
 
-        appendField(jsonSchemaBuilder, "yesterday_summary", promptConfig.getYesterdaySummary(), DEFAULT_YESTERDAY_SUMMARY_1,  DEFAULT_YESTERDAY_SUMMARY_2);
-        appendField(jsonSchemaBuilder, "emotion_weather", promptConfig.getEmotionWeather(), DEFAULT_EMOTION_WEATHER_1, DEFAULT_EMOTION_WEATHER_2);
-        appendField(jsonSchemaBuilder, "subconscious_link", promptConfig.getSubconsciousLink(), DEFAULT_SUBCONSCIOUS_LINK_1, DEFAULT_SUBCONSCIOUS_LINK_2);
-        appendField(jsonSchemaBuilder, "today_quote", promptConfig.getTodayQuote(), DEFAULT_TODAY_QUOTE_1, DEFAULT_TODAY_QUOTE_2);
-        appendField(jsonSchemaBuilder, "keywords", promptConfig.getKeywords(), DEFAULT_KEYWORDS);
+        appendField(jsonSchemaBuilder, "yesterday_summary", Optional.ofNullable(promptConfig).map(PromptConfig::getYesterdaySummary).orElse(DEFAULT_YESTERDAY_SUMMARY_1 + DEFAULT_YESTERDAY_SUMMARY_2));
+        appendField(jsonSchemaBuilder, "emotion_weather", Optional.ofNullable(promptConfig).map(PromptConfig::getEmotionWeather).orElse(DEFAULT_EMOTION_WEATHER_1 + DEFAULT_EMOTION_WEATHER_2));
+        appendField(jsonSchemaBuilder, "subconscious_link", Optional.ofNullable(promptConfig).map(PromptConfig::getSubconsciousLink).orElse(DEFAULT_SUBCONSCIOUS_LINK_1 + DEFAULT_SUBCONSCIOUS_LINK_2));
+        appendField(jsonSchemaBuilder, "today_quote", Optional.ofNullable(promptConfig).map(PromptConfig::getTodayQuote).orElse(DEFAULT_TODAY_QUOTE_1 + DEFAULT_TODAY_QUOTE_2));
+        appendField(jsonSchemaBuilder, "keywords", Optional.ofNullable(promptConfig).map(PromptConfig::getKeywords).orElse(DEFAULT_KEYWORDS));
 
         // 移除最后一个逗号
         if (jsonSchemaBuilder.length() > 2) {
@@ -76,9 +76,8 @@ public class PromptManager {
         sb.append(String.format("  \"%s\": \"%s\",\n", key, value));
     }
 
-    private void appendField(StringBuilder sb, String key, String userValue, String defaultValue1, String defaultValue2) {
-        String value = (userValue != null && !userValue.isEmpty()) ? userValue + defaultValue2 : defaultValue1 + defaultValue2;
-        sb.append(String.format("  \"%s\": \"%s\",\n", key, value));
+    private void appendField(StringBuilder sb, String key, String userValue) {
+        sb.append(String.format("  \"%s\": \"%s\",\n", key, userValue));
     }
     
     /**
