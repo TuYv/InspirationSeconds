@@ -90,35 +90,13 @@ public class GuestModeTestController {
      * 参数: openId, newToken (用户自己的Notion Token), newDbId (用户自己的DB ID)
      */
     @PostMapping("/migrate")
-    public Map<String, Object> triggerMigration(@RequestParam String openId, 
+    public void triggerMigration(@RequestParam String srcToken,
+                                               @RequestParam String srcDbId,
                                                @RequestParam String newToken, 
                                                @RequestParam String newDbId) {
-        Map<String, Object> result = new HashMap<>();
-        
-        UserConfig user = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
-        if (user == null) {
-            result.put("error", "用户不存在");
-            return result;
-        }
-        
-        if (!Boolean.TRUE.equals(user.getIsGuest())) {
-            result.put("error", "该用户不是访客");
-            return result;
-        }
-
-        // 验证 Token 和 DB ID 有效性
-        boolean valid = notionService.validate(newToken, newDbId);
-        if (!valid) {
-            result.put("error", "Token 或 Database ID 无效");
-            return result;
-        }
-
         // 触发迁移
-        migrationService.startMigration(user, newToken, newDbId);
-        
-        result.put("status", "migration_started");
-        result.put("message", "迁移任务已异步启动，请稍后查询状态");
-        return result;
+        migrationService.migrateSinglePage(srcToken, srcDbId, newToken, newDbId);
+
     }
 
     /**
