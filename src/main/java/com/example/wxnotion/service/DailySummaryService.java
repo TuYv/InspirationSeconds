@@ -1,6 +1,7 @@
 package com.example.wxnotion.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.ConfigStatus;
 import com.example.wxnotion.model.UserConfig;
@@ -33,6 +34,7 @@ public class DailySummaryService {
     private final WeeklySummaryService weeklySummaryService;
     private final PromptOptimizationService promptOptimizationService;
     private final PromptManager promptManager;
+    private final NotionProperties notionProperties;
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -107,7 +109,12 @@ public class DailySummaryService {
     }
 
     private String processUserSummary(UserConfig userConfig, LocalDate targetDate) {
-        String apiKey = AesUtil.decrypt(aesKey, userConfig.getEncryptedApiKey());
+        String apiKey;
+        if (userConfig.getIsGuest()) {
+            apiKey = notionProperties.getAdminToken();
+        } else {
+            apiKey = AesUtil.decrypt(aesKey, userConfig.getEncryptedApiKey());
+        }
         String dbId = userConfig.getDatabaseId();
 
         // 1. 找到目标日期的页面

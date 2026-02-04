@@ -52,10 +52,10 @@ public class PromptManager {
         StringBuilder jsonSchemaBuilder = new StringBuilder();
         jsonSchemaBuilder.append("{\n");
 
-        appendField(jsonSchemaBuilder, "yesterday_summary", Optional.ofNullable(promptConfig).map(PromptConfig::getYesterdaySummary).orElse(DEFAULT_YESTERDAY_SUMMARY_1 + DEFAULT_YESTERDAY_SUMMARY_2));
-        appendField(jsonSchemaBuilder, "emotion_weather", Optional.ofNullable(promptConfig).map(PromptConfig::getEmotionWeather).orElse(DEFAULT_EMOTION_WEATHER_1 + DEFAULT_EMOTION_WEATHER_2));
-        appendField(jsonSchemaBuilder, "subconscious_link", Optional.ofNullable(promptConfig).map(PromptConfig::getSubconsciousLink).orElse(DEFAULT_SUBCONSCIOUS_LINK_1 + DEFAULT_SUBCONSCIOUS_LINK_2));
-        appendField(jsonSchemaBuilder, "today_quote", Optional.ofNullable(promptConfig).map(PromptConfig::getTodayQuote).orElse(DEFAULT_TODAY_QUOTE_1 + DEFAULT_TODAY_QUOTE_2));
+        appendField(jsonSchemaBuilder, "yesterday_summary", Optional.ofNullable(promptConfig).map(PromptConfig::getYesterdaySummary).orElse(DEFAULT_YESTERDAY_SUMMARY_1) + DEFAULT_YESTERDAY_SUMMARY_2);
+        appendField(jsonSchemaBuilder, "emotion_weather", Optional.ofNullable(promptConfig).map(PromptConfig::getEmotionWeather).orElse(DEFAULT_EMOTION_WEATHER_1) + DEFAULT_EMOTION_WEATHER_2);
+        appendField(jsonSchemaBuilder, "subconscious_link", Optional.ofNullable(promptConfig).map(PromptConfig::getSubconsciousLink).orElse(DEFAULT_SUBCONSCIOUS_LINK_1) + DEFAULT_SUBCONSCIOUS_LINK_2);
+        appendField(jsonSchemaBuilder, "today_quote", Optional.ofNullable(promptConfig).map(PromptConfig::getTodayQuote).orElse(DEFAULT_TODAY_QUOTE_1) + DEFAULT_TODAY_QUOTE_2);
         appendField(jsonSchemaBuilder, "keywords", Optional.ofNullable(promptConfig).map(PromptConfig::getKeywords).orElse(DEFAULT_KEYWORDS));
 
         // 移除最后一个逗号
@@ -69,11 +69,6 @@ public class PromptManager {
                 summaryRole,
                 jsonSchemaBuilder,
                 FIXED_PART_2_CONSTRAINTS);
-    }
-
-    private void appendField(StringBuilder sb, String key, String userValue, String defaultValue) {
-        String value = (userValue != null && !userValue.isEmpty()) ? userValue : defaultValue;
-        sb.append(String.format("  \"%s\": \"%s\",\n", key, value));
     }
 
     private void appendField(StringBuilder sb, String key, String userValue) {
