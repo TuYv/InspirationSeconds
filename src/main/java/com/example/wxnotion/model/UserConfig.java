@@ -15,6 +15,7 @@ import java.util.Map;
  * 用户配置实体。
  *
  * - openId：微信用户唯一标识
+ * - nickname/avatarUrl：微信用户资料
  * - appType：笔记软件类型（当前支持 Notion）
  * - status：配置状态（启用/停用）
  * - encryptedApiKey：AES 加密后的 Notion API Key
@@ -28,6 +29,8 @@ public class UserConfig {
   @TableId(type = IdType.AUTO)
   private Long id;
   private String openId;
+  private String nickname;
+  private String avatarUrl;
   private NoteAppType appType;
   private ConfigStatus status;
   private String encryptedApiKey;

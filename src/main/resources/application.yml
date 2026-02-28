@@ -23,6 +23,12 @@ wx:
   secret: ${WX_APP_SECRET:your-app-secret}
   token: ${WX_TOKEN:your-token}
   encodingAesKey: ${WX_ENCODING_AES_KEY}
+  # OAuth 网页授权回调基地址（可选，部署到公网后建议显式配置）
+  oauthCallbackBase: ${WX_OAUTH_CALLBACK_BASE:https://wx.api.soloship.top}
+  # OAuth 回调后跳转地址（前端页面）
+  oauthReturnUrl: ${WX_OAUTH_RETURN_URL:https://wx.soloship.top}
+  # 授权范围：snsapi_base(仅 openId) / snsapi_userinfo(需用户确认)
+  oauthScope: ${WX_OAUTH_SCOPE:snsapi_userinfo}
 
 security:
   aesKey: ${AES_KEY:0123456789abcdef0123456789abcdef}

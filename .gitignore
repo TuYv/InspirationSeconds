@@ -37,3 +37,4 @@ docker-compose.override.yml
 *.swp
 *~
 src/main/resources/application.yml
+/frontend/node_modules/

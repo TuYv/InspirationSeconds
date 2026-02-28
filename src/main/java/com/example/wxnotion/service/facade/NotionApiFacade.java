@@ -1,0 +1,198 @@
+package com.example.wxnotion.service.facade;
+
+import com.example.wxnotion.config.NotionProperties;
+import com.example.wxnotion.http.HttpClient;
+import com.example.wxnotion.http.HttpClient.HttpResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.util.*;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class NotionApiFacade {
+
+  private final HttpClient httpClient;
+  private final NotionProperties notionProps;
+  private final ObjectMapper mapper;
+
+  public String createGuestDatabase(String token, String parentPageId, String title) {
+    return runWithRetry("createGuestDatabase", () -> {
+      Map<String, Object> payload = new HashMap<>();
+      payload.put("parent", Map.of("type", "page_id", "page_id", parentPageId));
+      payload.put("title", Collections.singletonList(Map.of(
+          "type", "text",
+          "text", Map.of("content", title)
+      )));
+
+      Map<String, Object> properties = new LinkedHashMap<>();
+      properties.put("Name", Map.of("title", Map.of()));
+      properties.put("Created time", Map.of("created_time", Map.of()));
+      properties.put("Date", Map.of("date", Map.of()));
+      properties.put("Description", Map.of("rich_text", Map.of()));
+      properties.put("Last edited time", Map.of("last_edited_time", Map.of()));
+      properties.put("Status", Map.of("status", Map.of()));
+      properties.put("Title", Map.of("rich_text", Map.of()));
+      payload.put("properties", properties);
+
+      String json = mapper.writeValueAsString(payload);
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases",
+          "POST",
+          json,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("createGuestDatabase", resp, "parentPageId=" + parentPageId);
+      }
+      JsonNode root = mapper.readTree(resp.body);
+      return root.path("id").asText(null);
+    });
+  }
+
+  public QueryResult queryDatabase(String token, String anyDatabaseId, String cursor, int pageSize) {
+    return runWithRetry("queryDatabase", () -> queryDatabaseOnce(token, anyDatabaseId, cursor, pageSize));
+  }
+
+  private QueryResult queryDatabaseOnce(String token, String anyDatabaseId, String cursor, int pageSize) throws IOException {
+    String dataSourceId = resolveDataSourceId(token, anyDatabaseId);
+
+    Map<String, Object> body = new HashMap<>();
+    body.put("page_size", pageSize);
+    if (cursor != null) body.put("start_cursor", cursor);
+    Map<String, String> sort = new HashMap<>();
+    sort.put("timestamp", "created_time");
+    sort.put("direction", "ascending");
+    body.put("sorts", Collections.singletonList(sort));
+
+    String json = mapper.writeValueAsString(body);
+    String url = "https://api.notion.com/v1/data_sources/" + dataSourceId + "/query";
+
+    HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(url, "POST", json, buildHeaders(token)));
+    if (!resp.isSuccessful && resp.code == 404) {
+      String fallbackUrl = "https://api.notion.com/v1/databases/" + dataSourceId + "/query";
+      resp = httpClient.execute(new HttpClient.HttpRequest(fallbackUrl, "POST", json, buildHeaders(token)));
+    }
+
+    if (!resp.isSuccessful) {
+      NotionApiException ne = translateHttp("queryDatabase", resp, "id=" + anyDatabaseId + ",dataSourceId=" + dataSourceId);
+      throw ne;
+    }
+
+    JsonNode root = mapper.readTree(resp.body);
+    JsonNode results = root.path("results");
+    String nextCursor = root.path("next_cursor").asText(null);
+    boolean hasMore = root.path("has_more").asBoolean(false);
+    return new QueryResult(results, nextCursor, hasMore);
+  }
+
+  private String resolveDataSourceId(String token, String databaseId) throws IOException {
+    HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+        "https://api.notion.com/v1/databases/" + databaseId,
+        "GET",
+        null,
+        buildHeaders(token)
+    ));
+
+    if (!resp.isSuccessful) {
+      return databaseId;
+    }
+
+    JsonNode root = mapper.readTree(resp.body);
+    JsonNode dataSources = root.path("data_sources");
+    if (dataSources.isArray() && dataSources.size() > 0) {
+      return dataSources.get(0).path("id").asText(databaseId);
+    }
+    return databaseId;
+  }
+
+  private <T> T runWithRetry(String name, SupplierWithException<T> s) {
+    int attempt = 0;
+    long delay = 300L;
+    while (true) {
+      try {
+        T res = s.get();
+        if (attempt > 0) {
+          log.info("Notion op {} succeeded after retry {}", name, attempt);
+        }
+        return res;
+      } catch (NotionApiException e) {
+        if (e.getHttpStatus() == 429 || (e.getHttpStatus() >= 500 && e.getHttpStatus() < 600)) {
+          if (attempt >= 3) throw e;
+          sleep(delay);
+          delay = Math.min(delay * 2, 2000L);
+          attempt++;
+          continue;
+        }
+        throw e;
+      } catch (Exception e) {
+        NotionApiException ne = translate(name, e, null);
+        if (ne.getHttpStatus() == 429 || (ne.getHttpStatus() >= 500 && ne.getHttpStatus() < 600)) {
+          if (attempt >= 3) throw ne;
+          sleep(delay);
+          delay = Math.min(delay * 2, 2000L);
+          attempt++;
+          continue;
+        }
+        throw ne;
+      }
+    }
+  }
+
+  private void sleep(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException ignored) {
+    }
+  }
+
+  private NotionApiException translate(String name, Exception e, String ctx) {
+    String msg = e.getMessage() != null ? e.getMessage() : "";
+    if (msg.contains("unauthorized")) {
+      return new NotionApiException("unauthorized", 401, msg, ctx != null ? ctx : name);
+    }
+    if (msg.contains("validation_error")) {
+      return new NotionApiException("validation_error", 400, msg, ctx != null ? ctx : name);
+    }
+    if (msg.contains("object_not_found")) {
+      return new NotionApiException("object_not_found", 404, msg, ctx != null ? ctx : name);
+    }
+    if (msg.contains("invalid_request_url")) {
+      return new NotionApiException("invalid_request_url", 400, msg, ctx != null ? ctx : name);
+    }
+    return new NotionApiException("unknown_error", 500, msg, ctx != null ? ctx : name);
+  }
+
+  private NotionApiException translateHttp(String name, HttpResponse resp, String ctx) {
+    String msg = resp.body != null ? resp.body : "";
+    String code = "unknown_error";
+    int status = resp.code;
+    try {
+      JsonNode node = mapper.readTree(msg);
+      code = node.path("code").asText(code);
+      msg = node.path("message").asText(msg);
+    } catch (Exception ignored) {
+    }
+    return new NotionApiException(code, status, msg, ctx != null ? ctx : name);
+  }
+
+  private Map<String, String> buildHeaders(String token) {
+    Map<String, String> headers = new HashMap<>();
+    headers.put("Authorization", "Bearer " + token);
+    headers.put("Notion-Version", notionProps.getVersion() != null ? notionProps.getVersion() : "2022-06-28");
+    headers.put("Content-Type", "application/json");
+    return headers;
+  }
+
+  public record QueryResult(JsonNode results, String nextCursor, boolean hasMore) {}
+
+  @FunctionalInterface
+  private interface SupplierWithException<T> {
+    T get() throws Exception;
+  }
+}

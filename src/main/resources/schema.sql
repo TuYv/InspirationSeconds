@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS user_config (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   open_id VARCHAR(64) NOT NULL UNIQUE,
+  nickname VARCHAR(128),
+  avatar_url VARCHAR(512),
   app_type VARCHAR(32) NOT NULL,
   status VARCHAR(32) NOT NULL,
   encrypted_api_key VARCHAR(2048) NOT NULL,

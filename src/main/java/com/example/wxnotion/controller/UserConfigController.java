@@ -2,12 +2,16 @@ package com.example.wxnotion.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
+import com.example.wxnotion.model.ConfigStatus;
+import com.example.wxnotion.model.NoteAppType;
 import com.example.wxnotion.model.UserConfig;
+import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -56,5 +60,42 @@ public class UserConfigController {
     if (repo.selectById(id) == null) return ResponseEntity.notFound().build();
     repo.deleteById(id);
     return ResponseEntity.noContent().build();
+  }
+
+  /**
+   * 根据 openId 获取用于展示的配置视图（不包含敏感字段）。
+   */
+  @GetMapping("/by-openid")
+  public ResponseEntity<UserConfigView> getByOpenId(@RequestParam String openId) {
+    UserConfig cfg = repo.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+    if (cfg == null) return ResponseEntity.notFound().build();
+    return ResponseEntity.ok(UserConfigView.from(cfg));
+  }
+
+  @Data
+  public static class UserConfigView {
+    private String openId;
+    private NoteAppType appType;
+    private ConfigStatus status;
+    private String databaseId;
+    private Boolean isGuest;
+    private String migrationStatus;
+    private LocalDateTime updatedAt;
+    private String nickname;
+    private String avatarUrl;
+
+    public static UserConfigView from(UserConfig cfg) {
+      UserConfigView view = new UserConfigView();
+      view.setOpenId(cfg.getOpenId());
+      view.setAppType(cfg.getAppType());
+      view.setStatus(cfg.getStatus());
+      view.setDatabaseId(cfg.getDatabaseId());
+      view.setIsGuest(cfg.getIsGuest());
+      view.setMigrationStatus(cfg.getMigrationStatus());
+      view.setUpdatedAt(cfg.getUpdatedAt());
+      view.setNickname(cfg.getNickname());
+      view.setAvatarUrl(cfg.getAvatarUrl());
+      return view;
+    }
   }
 }

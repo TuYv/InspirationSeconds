@@ -3,6 +3,7 @@ package com.example.wxnotion.service;
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.http.HttpClient;
 import com.example.wxnotion.http.HttpClient.HttpResponse;
+import com.example.wxnotion.service.facade.NotionApiFacade;
 import com.example.wxnotion.model.notion.NotionBlock;
 import com.example.wxnotion.model.notion.NotionPageRequest;
 import com.example.wxnotion.model.notion.RichText;
@@ -33,6 +34,7 @@ public class NotionService {
   private final HttpClient httpClient;
   private final ObjectMapper mapper = new ObjectMapper();
   private final NotionProperties notionProps;
+  private final NotionApiFacade notionFacade;
 
   /**
    * 调用 Notion `GET /v1/databases/{id}` 验证数据库存在与权限有效。
@@ -647,4 +649,3 @@ public class NotionService {
     }
   }
 }
-
