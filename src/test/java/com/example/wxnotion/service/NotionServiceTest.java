@@ -2,7 +2,9 @@ package com.example.wxnotion.service;
 
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.http.OkHttpClientImpl;
+import com.example.wxnotion.service.facade.NotionApiFacade;
 import com.example.wxnotion.util.ContentUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -23,9 +25,11 @@ public class NotionServiceTest {
   void setUp() throws IOException {
     server = new MockWebServer();
     server.start();
+    okHttpClient = new OkHttpClientImpl();
     NotionProperties props = new NotionProperties();
     props.setVersion("2022-06-28");
-    notion = new NotionService(okHttpClient, props) {
+    NotionApiFacade facade = new NotionApiFacade(okHttpClient, props, new ObjectMapper());
+    notion = new NotionService(okHttpClient, props, facade) {
       @Override
       public boolean validate(String apiKey, String databaseId) {
         return true;
@@ -53,4 +57,3 @@ public class NotionServiceTest {
     assertTrue(res.ok);
   }
 }
-
