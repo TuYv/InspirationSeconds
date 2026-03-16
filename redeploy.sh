@@ -17,7 +17,26 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 2. 构建镜像
+# 2. 构建前端
+log "Building frontend..."
+cd frontend
+npm install --silent
+npm run build
+if [ $? -ne 0 ]; then
+    error "Frontend build failed!"
+    exit 1
+fi
+cd ..
+
+# 3. 部署前端静态文件
+log "Deploying frontend to /var/www/wx-frontend/..."
+rsync -a --delete frontend/dist/ /var/www/wx-frontend/
+if [ $? -ne 0 ]; then
+    error "Frontend deploy failed!"
+    exit 1
+fi
+
+# 5. 构建镜像
 log "Building Docker image..."
 docker compose build
 if [ $? -ne 0 ]; then
@@ -25,7 +44,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 3. 重启服务
+# 6. 重启服务
 log "Restarting services..."
 docker compose up -d
 if [ $? -ne 0 ]; then
@@ -33,6 +52,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 4. 查看日志
+# 7. 查看日志
 log "Following logs (Ctrl+C to exit)..."
 docker compose logs -f 
