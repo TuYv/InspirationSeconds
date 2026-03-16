@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.service.WxOAuthSessionService;
+import com.example.wxnotion.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.mp.api.WxMpService;
@@ -35,6 +36,7 @@ public class WxOAuthController {
   private final WxProperties wxProperties;
   private final UserConfigRepository userConfigRepository;
   private final WxOAuthSessionService sessionService;
+  private final JwtUtil jwtUtil;
 
   /**
    * 发起微信网页授权，获取 openId。
@@ -78,7 +80,8 @@ public class WxOAuthController {
       if (StringUtils.isNotBlank(state)) {
         sessionService.markAuthed(state, openId);
       }
-      response.sendRedirect(appendParam(safeReturnUrl, "openId", openId));
+      String jwt = jwtUtil.issue(openId);
+      response.sendRedirect(appendParam(safeReturnUrl, "token", jwt));
     } catch (Exception e) {
       log.error("OAuth 回调处理失败", e);
       response.sendRedirect(appendParam(safeReturnUrl, "error", "oauth_failed"));
@@ -116,6 +119,9 @@ public class WxOAuthController {
     Map<String, Object> res = new HashMap<>();
     res.put("status", status.status);
     res.put("openId", status.openId);
+    if ("SUCCESS".equals(status.status) && StringUtils.isNotBlank(status.openId)) {
+      res.put("token", jwtUtil.issue(status.openId));
+    }
     return res;
   }
 

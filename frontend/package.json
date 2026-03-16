@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "qrcode": "^1.5.3",
-    "vue": "^3.4.27"
+    "vue": "^3.4.27",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.5",
