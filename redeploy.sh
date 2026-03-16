@@ -1,4 +1,5 @@
 #!/bin/bash
+export DOCKER_BUILDKIT=1
 
 # 打印带颜色的日志
 log() {

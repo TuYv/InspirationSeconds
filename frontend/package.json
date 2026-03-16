@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "marked": "^17.0.4",
     "qrcode": "^1.5.3",
     "vue": "^3.4.27",
     "vue-router": "^4.6.4"

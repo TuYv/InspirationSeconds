@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/SettingsView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/notion',
+    component: () => import('../views/NotionView.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

@@ -76,6 +76,113 @@ public class BlockContentParser {
         return sb.toString().trim();
     }
     
+    /**
+     * 将 Notion API 返回的 Block Children 列表转为 Markdown 字符串
+     * @param root Notion API 响应的根节点 (包含 results 数组)
+     * @return Markdown 文本
+     */
+    public static String toMarkdown(JsonNode root) {
+        if (root == null || !root.has("results")) return "";
+
+        StringBuilder sb = new StringBuilder();
+        JsonNode results = root.get("results");
+
+        if (results.isArray()) {
+            for (JsonNode block : results) {
+                String type = block.path("type").asText();
+                try {
+                    appendMarkdownBlock(sb, block, type);
+                } catch (Exception e) {
+                    // 降级：跳过无法解析的 block，不抛异常
+                }
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private static void appendMarkdownBlock(StringBuilder sb, JsonNode block, String type) {
+        switch (type) {
+            case "paragraph": {
+                String text = extractRichText(block.path("paragraph").path("rich_text"));
+                if (!text.isEmpty()) sb.append(text).append("\n\n");
+                break;
+            }
+            case "heading_1": {
+                String text = extractRichText(block.path("heading_1").path("rich_text"));
+                sb.append("# ").append(text).append("\n\n");
+                break;
+            }
+            case "heading_2": {
+                String text = extractRichText(block.path("heading_2").path("rich_text"));
+                sb.append("## ").append(text).append("\n\n");
+                break;
+            }
+            case "heading_3": {
+                String text = extractRichText(block.path("heading_3").path("rich_text"));
+                sb.append("### ").append(text).append("\n\n");
+                break;
+            }
+            case "bulleted_list_item": {
+                String text = extractRichText(block.path("bulleted_list_item").path("rich_text"));
+                sb.append("- ").append(text).append("\n");
+                break;
+            }
+            case "numbered_list_item": {
+                String text = extractRichText(block.path("numbered_list_item").path("rich_text"));
+                sb.append("1. ").append(text).append("\n");
+                break;
+            }
+            case "to_do": {
+                boolean checked = block.path("to_do").path("checked").asBoolean(false);
+                String text = extractRichText(block.path("to_do").path("rich_text"));
+                sb.append(checked ? "- [x] " : "- [ ] ").append(text).append("\n");
+                break;
+            }
+            case "quote": {
+                String text = extractRichText(block.path("quote").path("rich_text"));
+                sb.append("> ").append(text).append("\n\n");
+                break;
+            }
+            case "code": {
+                String text = extractRichText(block.path("code").path("rich_text"));
+                String lang = block.path("code").path("language").asText("");
+                sb.append("```").append(lang).append("\n").append(text).append("\n```\n\n");
+                break;
+            }
+            case "callout": {
+                String text = extractRichText(block.path("callout").path("rich_text"));
+                String emoji = block.path("callout").path("icon").path("emoji").asText("");
+                sb.append("> ").append(emoji.isEmpty() ? "" : emoji + " ").append(text).append("\n\n");
+                break;
+            }
+            case "divider": {
+                sb.append("---\n\n");
+                break;
+            }
+            case "image": {
+                JsonNode imageNode = block.path("image");
+                String url = imageNode.path("file").path("url").asText(
+                        imageNode.path("external").path("url").asText(""));
+                if (!url.isEmpty()) sb.append("![](").append(url).append(")\n\n");
+                break;
+            }
+            default: {
+                // 未知类型：尝试提取 plain_text 降级处理
+                String fallback = extractPlainTextFallback(block, type);
+                if (!fallback.isEmpty()) sb.append(fallback).append("\n\n");
+                break;
+            }
+        }
+    }
+
+    private static String extractPlainTextFallback(JsonNode block, String type) {
+        JsonNode typeNode = block.path(type);
+        if (typeNode.has("rich_text")) {
+            return extractRichText(typeNode.path("rich_text"));
+        }
+        return "";
+    }
+
     private static String extractRichText(JsonNode richTextArray) {
         StringBuilder text = new StringBuilder();
         if (richTextArray.isArray()) {

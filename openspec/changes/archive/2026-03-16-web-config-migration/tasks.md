@@ -55,8 +55,8 @@
 
 ## 10. 验收
 
-- [ ] 10.1 微信内打开页面：OAuth 流程完成后能跳转 `/dashboard` 并显示配置
-- [ ] 10.2 PC 端：QR 扫码成功后自动跳转 `/dashboard`
-- [ ] 10.3 未配置用户（新用户）：登录后自动进入 `/setup` 向导，完成配置后跳转 `/dashboard`
-- [ ] 10.4 已配置用户进入 `/settings` 修改 token 和数据库，保存后 `/dashboard` 显示更新结果
-- [ ] 10.5 直接访问 `/wx/portal` POST（微信推送）：不受 JWT filter 拦截，正常处理
+- [x] 10.1 微信内打开页面：OAuth 流程完成后能跳转 `/dashboard` 并显示配置
+- [x] 10.2 PC 端：QR 扫码成功后自动跳转 `/dashboard`
+- [x] 10.3 未配置用户（新用户）：登录后自动进入 `/setup` 向导，完成配置后跳转 `/dashboard`
+- [x] 10.4 已配置用户进入 `/settings` 修改 token 和数据库，保存后 `/dashboard` 显示更新结果
+- [x] 10.5 直接访问 `/wx/portal` POST（微信推送）：不受 JWT filter 拦截，正常处理

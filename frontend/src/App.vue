@@ -45,6 +45,7 @@
         <span class="nav-brand">Notion Config</span>
         <div class="nav-links">
           <router-link to="/dashboard">概览</router-link>
+          <router-link to="/notion">记录</router-link>
           <router-link to="/settings">设置</router-link>
           <button class="ghost-sm" @click="doLogout">退出</button>
         </div>
