@@ -4,8 +4,8 @@
   --bg-accent: #e7ecef;
   --ink: #1f2933;
   --muted: #5b6770;
-  --accent: #d97706;
-  --accent-2: #2563eb;
+  --accent: #52a96e;
+  --accent-2: #2d7a4a;
   --surface: #ffffff;
   --border: rgba(31, 41, 51, 0.12);
   --shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
@@ -21,8 +21,8 @@ body {
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(1200px 700px at 20% -10%, #f0d9c6 0%, rgba(240, 217, 198, 0) 60%),
-    radial-gradient(900px 700px at 90% 10%, #dbe7ff 0%, rgba(219, 231, 255, 0) 55%),
+    radial-gradient(1200px 700px at 20% -10%, #d4ead9 0%, rgba(212, 234, 217, 0) 60%),
+    radial-gradient(900px 700px at 90% 10%, #d6f0e8 0%, rgba(214, 240, 232, 0) 55%),
     linear-gradient(180deg, #f6f1e9 0%, #f9f6f2 45%, #f2f5f7 100%);
 }
 
@@ -52,8 +52,8 @@ input {
 }
 
 input:focus {
-  border-color: rgba(37, 99, 235, 0.45);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: rgba(45, 122, 74, 0.45);
+  box-shadow: 0 0 0 3px rgba(45, 122, 74, 0.15);
 }
 
 .badge {
@@ -66,8 +66,8 @@ input:focus {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
+  background: rgba(45, 122, 74, 0.12);
+  color: #1a5c35;
 }
 
 .badge.warning {

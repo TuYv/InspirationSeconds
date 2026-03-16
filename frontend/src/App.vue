@@ -3,22 +3,22 @@
     <!-- Login screen for unauthenticated users -->
     <div v-if="!loggedIn" class="page login-page">
       <header class="hero">
-        <div class="hero-tag">Notion Config Console</div>
-        <h1>你的 Notion 配置，一眼可见</h1>
-        <p>完成微信授权后即可管理配置，同步你的想法到 Notion。</p>
+        <div class="hero-tag">灵感妙记</div>
+        <h1>记录每一个闪过的念头</h1>
+        <p>在微信里随手记，AI 帮你整理和回顾。</p>
       </header>
 
       <section class="panel">
         <div class="auth-card">
           <div>
-            <h3>微信授权获取身份</h3>
-            <p>请在微信内打开本页面，点击按钮完成授权后即可管理配置。</p>
+            <h3>微信授权登录</h3>
+            <p>授权后即可开始记录，回顾你的灵感。</p>
           </div>
           <div class="auth-actions">
             <button class="primary" type="button" @click="startOAuth">微信授权登录</button>
           </div>
           <p v-if="!isWeChat" class="hint muted">
-            当前环境非微信浏览器，可使用下方二维码扫码登录。
+            当前不在微信内，可使用下方二维码扫码登录。
           </p>
         </div>
 
@@ -42,9 +42,8 @@
     <!-- Authenticated layout -->
     <template v-else>
       <nav class="top-nav">
-        <span class="nav-brand">Notion Config</span>
+        <span class="nav-brand">灵感妙记</span>
         <div class="nav-links">
-          <router-link to="/dashboard">概览</router-link>
           <router-link to="/notion">记录</router-link>
           <router-link to="/settings">设置</router-link>
           <button class="ghost-sm" @click="doLogout">退出</button>
@@ -81,7 +80,7 @@ function handleToken(token: string) {
   const url = new URL(window.location.href);
   url.searchParams.delete('token');
   window.history.replaceState({}, '', url.toString());
-  router.push('/dashboard');
+  router.push('/notion');
 }
 
 const startOAuth = () => {
@@ -240,8 +239,8 @@ button.ghost-sm:hover {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(217,119,6,.12);
-  color: #b45309;
+  background: rgba(45, 122, 74, 0.12);
+  color: #1a5c35;
   font-weight: 600;
   font-size: 12px;
   letter-spacing: .12em;

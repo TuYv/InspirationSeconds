@@ -46,8 +46,13 @@
 
     <!-- Right: detail panel -->
     <div class="detail-panel">
+      <!-- Month loading -->
+      <div v-if="monthLoading" class="detail-empty detail-loading-month">
+        <p class="loading-inspiration">✦ 正在加载你的灵感...</p>
+      </div>
+
       <!-- No date selected -->
-      <div v-if="!selectedDate" class="detail-empty">
+      <div v-else-if="!selectedDate" class="detail-empty">
         <p>点击左侧日期查看当天记录</p>
       </div>
 
@@ -108,6 +113,7 @@ const blockCountMap = ref<Record<string, number>>({});   // date → blockCount
 const selectedDate = ref<string | null>(null);
 const pageContent = ref<PageContent | null>(null);
 const contentLoading = ref(false);
+const monthLoading = ref(false);
 const aiExpanded = ref(false);
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -169,6 +175,7 @@ function changeMonth(delta: number) {
   year.value = y;
   selectedDate.value = null;
   pageContent.value = null;
+  monthLoading.value = true;
 }
 
 // ── Data fetching ──────────────────────────────────────────────────────
@@ -177,6 +184,7 @@ async function loadMonth() {
   fetchAbortController = new AbortController();
   const signal = fetchAbortController.signal;
 
+  monthLoading.value = true;
   pageMap.value = {};
   blockCountMap.value = {};
 
@@ -192,6 +200,7 @@ async function loadMonth() {
     const newMap: Record<string, string> = {};
     for (const p of pages) { newMap[p.date] = p.pageId; }
     pageMap.value = newMap;
+    monthLoading.value = false;
 
     if (pages.length === 0) return;
 
@@ -199,6 +208,8 @@ async function loadMonth() {
     await fetchBlockCountsParallel(pages, signal);
   } catch (e: any) {
     if (e?.name !== 'AbortError') console.error('loadMonth error', e);
+  } finally {
+    monthLoading.value = false;
   }
 }
 
@@ -402,6 +413,23 @@ onMounted(loadMonth);
   text-align: center;
   color: var(--muted);
   box-shadow: var(--shadow);
+}
+
+.detail-loading-month {
+  border-color: rgba(45, 122, 74, 0.2);
+  background: rgba(212, 234, 217, 0.3);
+}
+
+.loading-inspiration {
+  color: #2d7a4a;
+  font-weight: 600;
+  font-size: 15px;
+  animation: pulse-text 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 
 .detail-loading {

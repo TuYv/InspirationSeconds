@@ -1,23 +1,62 @@
 <template>
   <div class="page">
     <header class="page-header">
-      <h1>修改配置</h1>
-      <p>更换 Notion Integration Token 或切换数据库。</p>
+      <h1>设置</h1>
+      <p>管理你的账号与 Notion 连接。</p>
     </header>
 
-    <!-- Step indicator -->
-    <div class="steps">
-      <div v-for="(label, i) in stepLabels" :key="i"
-           :class="['step', { active: step === i + 1, done: step > i + 1 }]">
-        <span class="step-num">{{ step > i + 1 ? '✓' : i + 1 }}</span>
-        <span class="step-label">{{ label }}</span>
+    <!-- Account card (read-only) -->
+    <section class="panel account-card">
+      <div v-if="accountLoading" class="state empty">加载中...</div>
+      <div v-else-if="account" class="account-inner">
+        <div class="profile">
+          <div class="avatar">
+            <img v-if="account.avatarUrl" :src="account.avatarUrl" alt="avatar" />
+            <span v-else>{{ displayName.slice(0, 1) }}</span>
+          </div>
+          <div class="profile-info">
+            <span class="profile-name">{{ displayName }}</span>
+            <span :class="['badge', statusBadgeClass]">{{ account.status }}</span>
+          </div>
+        </div>
+        <div class="account-fields">
+          <div class="field-row">
+            <span class="field-label">应用类型</span>
+            <span class="field-value">{{ account.appType }}</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">访客账号</span>
+            <span class="field-value">{{ account.isGuest ? '是' : '否' }}</span>
+          </div>
+          <div class="field-row db-row">
+            <span class="field-label">Notion 数据库 ID</span>
+            <div class="db-value-row">
+              <span class="field-value db-id">{{ truncatedDbId }}</span>
+              <button class="copy-btn" :class="{ copied: copyDone }" @click="copyDbId">
+                {{ copyDone ? '已复制' : '复制' }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
 
+    <!-- Change connection wizard -->
     <section class="panel">
+      <div class="panel-title">修改连接</div>
+
+      <!-- Step indicator -->
+      <div class="steps">
+        <div v-for="(label, i) in stepLabels" :key="i"
+             :class="['step', { active: step === i + 1, done: step > i + 1 }]">
+          <span class="step-num">{{ step > i + 1 ? '✓' : i + 1 }}</span>
+          <span class="step-label">{{ label }}</span>
+        </div>
+      </div>
+
       <!-- Step 1: Token input -->
       <div v-if="step === 1">
-        <h2>输入新的 Notion Integration Token</h2>
+        <h2>更换 Notion Token</h2>
         <p class="hint">如不更换 Token，也可保留当前配置并只更换数据库（需重新验证）。</p>
         <div class="form">
           <label class="field">
@@ -28,7 +67,7 @@
         </div>
         <div v-if="tokenError" class="state error">{{ tokenError }}</div>
         <div class="actions">
-          <router-link to="/dashboard" class="btn-ghost">取消</router-link>
+          <router-link to="/notion" class="btn-ghost">取消</router-link>
           <button class="primary" :disabled="!notionToken || validating" @click="validateToken">
             {{ validating ? '验证中...' : '验证并继续' }}
           </button>
@@ -38,7 +77,7 @@
       <!-- Step 2: Database selection -->
       <div v-if="step === 2">
         <h2>选择数据库</h2>
-        <p class="hint">选择新的目标数据库。</p>
+        <p class="hint">选择用于存储灵感记录的数据库。</p>
         <div v-if="databases.length === 0" class="state empty">
           未找到可访问的数据库。请确保已在 Notion 数据库中添加此 Integration。
         </div>
@@ -47,7 +86,7 @@
                  :class="['db-item', { selected: selectedDb === db.id }]">
             <input type="radio" :value="db.id" v-model="selectedDb" />
             <span class="db-title">{{ db.title }}</span>
-            <span class="db-id">{{ db.id }}</span>
+            <span class="db-id-small">{{ db.id }}</span>
           </label>
         </div>
         <div v-if="saveError" class="state error">{{ saveError }}</div>
@@ -69,12 +108,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '../utils/api';
 
 const router = useRouter();
 
+// ── Account card ──────────────────────────────────────────────────────
+type ConfigView = {
+  openId: string;
+  appType: string;
+  status: string;
+  databaseId: string;
+  isGuest: boolean | null;
+  updatedAt: string | null;
+  nickname?: string | null;
+  avatarUrl?: string | null;
+};
+
+const account = ref<ConfigView | null>(null);
+const accountLoading = ref(true);
+const copyDone = ref(false);
+
+const displayName = computed(() => account.value?.nickname || '微信用户');
+
+const statusBadgeClass = computed(() => {
+  const s = (account.value?.status ?? '').toUpperCase();
+  if (s === 'ACTIVE') return 'success';
+  if (s === 'INACTIVE') return 'warning';
+  return '';
+});
+
+const truncatedDbId = computed(() => {
+  const id = account.value?.databaseId ?? '';
+  return id.length > 24 ? id.slice(0, 12) + '...' + id.slice(-8) : id;
+});
+
+async function copyDbId() {
+  const id = account.value?.databaseId ?? '';
+  if (!id) return;
+  await navigator.clipboard.writeText(id);
+  copyDone.value = true;
+  setTimeout(() => { copyDone.value = false; }, 2000);
+}
+
+// ── Wizard ────────────────────────────────────────────────────────────
 const step = ref(1);
 const stepLabels = ['验证 Token', '选择数据库'];
 
@@ -126,13 +204,24 @@ const saveConfig = async () => {
       return;
     }
     step.value = 3;
-    setTimeout(() => router.push('/dashboard'), 1200);
+    setTimeout(() => router.push('/notion'), 1200);
   } catch {
     saveError.value = '网络错误，请稍后重试。';
   } finally {
     saving.value = false;
   }
 };
+
+onMounted(async () => {
+  try {
+    const resp = await apiFetch('/api/user/me');
+    if (resp.ok) {
+      account.value = await resp.json();
+    }
+  } finally {
+    accountLoading.value = false;
+  }
+});
 </script>
 
 <style scoped>
@@ -147,6 +236,120 @@ const saveConfig = async () => {
 
 .page-header h1 { margin: 0 0 8px; font-size: 28px; }
 .page-header p { margin: 0; color: var(--muted); }
+
+/* Account card */
+.account-card { padding: 24px 28px; }
+
+.account-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(45, 122, 74, 0.1);
+  color: #1a5c35;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 18px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.profile-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-name {
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.account-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.field-label {
+  color: var(--muted);
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.field-value {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.db-row { flex-wrap: wrap; }
+
+.db-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.db-id {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.copy-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.copy-btn.copied { background: rgba(45, 122, 74, 0.15); color: #1a5c35; }
+.copy-btn:hover { background: rgba(15, 23, 42, 0.1); }
+
+/* Wizard panel */
+.panel {
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
 
 .steps {
   display: flex;
@@ -167,8 +370,8 @@ const saveConfig = async () => {
 }
 
 .step.active {
-  background: rgba(37, 99, 235, 0.1);
-  color: #1d4ed8;
+  background: rgba(45, 122, 74, 0.1);
+  color: #1a5c35;
 }
 
 .step.done {
@@ -189,19 +392,8 @@ const saveConfig = async () => {
   flex-shrink: 0;
 }
 
-.step.active .step-num { background: #2563eb; }
+.step.active .step-num { background: #2d7a4a; }
 .step.done .step-num { background: #10b981; }
-
-.panel {
-  background: var(--surface);
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
 
 .panel h2 { margin: 0 0 8px; font-size: 20px; }
 .hint { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
@@ -234,13 +426,13 @@ const saveConfig = async () => {
 }
 
 .db-item.selected {
-  border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.06);
+  border-color: #2d7a4a;
+  background: rgba(45, 122, 74, 0.06);
 }
 
 .db-item input[type="radio"] { display: none; }
 .db-title { font-weight: 600; font-size: 15px; flex: 1; }
-.db-id { font-size: 12px; color: var(--muted); font-family: monospace; }
+.db-id-small { font-size: 12px; color: var(--muted); font-family: monospace; }
 
 .actions {
   display: flex;
@@ -258,15 +450,13 @@ const saveConfig = async () => {
   align-items: center;
   gap: 12px;
   padding: 20px;
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(45, 122, 74, 0.1);
   border-radius: 14px;
-  color: #047857;
+  color: #1a5c35;
   font-weight: 600;
 }
 
-.success-icon {
-  font-size: 20px;
-}
+.success-icon { font-size: 20px; }
 
 .btn-ghost {
   font-size: 14px;
@@ -292,7 +482,7 @@ button.primary {
 
 button.primary:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgba(37, 99, 235, .2);
+  box-shadow: 0 12px 28px rgba(45, 122, 74, .25);
 }
 
 button.primary:disabled { opacity: .6; cursor: not-allowed; }

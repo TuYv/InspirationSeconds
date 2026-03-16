@@ -5,16 +5,15 @@ import { apiFetch } from '../utils/api';
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/dashboard',
+    redirect: '/notion',
+  },
+  {
+    path: '/dashboard',
+    redirect: '/notion',
   },
   {
     path: '/setup',
     component: () => import('../views/SetupView.vue'),
-    meta: { requiresAuth: true },
-  },
-  {
-    path: '/dashboard',
-    component: () => import('../views/DashboardView.vue'),
     meta: { requiresAuth: true },
   },
   {

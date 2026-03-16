@@ -1,8 +1,8 @@
 <template>
   <div class="page">
     <header class="page-header">
-      <h1>配置 Notion</h1>
-      <p>完成以下步骤，将你的微信消息同步到 Notion。</p>
+      <h1>连接你的 Notion</h1>
+      <p>连接后，微信消息将自动同步到你的 Notion 数据库。</p>
     </header>
 
     <!-- Step indicator -->
@@ -37,7 +37,7 @@
       <!-- Step 2: Database selection -->
       <div v-if="step === 2">
         <h2>选择 Notion 数据库</h2>
-        <p class="hint">以下是该 Integration 可访问的数据库，请选择用于同步消息的数据库。</p>
+        <p class="hint">以下是该 Integration 可访问的数据库，请选择用于存储灵感记录的数据库。</p>
         <div v-if="databases.length === 0" class="state empty">
           未找到可访问的数据库。请确保你已在 Notion 数据库中添加此 Integration。
         </div>
@@ -118,7 +118,7 @@ const saveConfig = async () => {
       saveError.value = '保存失败，请稍后重试。';
       return;
     }
-    router.push('/dashboard');
+    router.push('/notion');
   } catch {
     saveError.value = '网络错误，请稍后重试。';
   } finally {
