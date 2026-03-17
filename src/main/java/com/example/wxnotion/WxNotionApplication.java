@@ -15,7 +15,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableAsync
 @EnableScheduling
 @SpringBootApplication
-@MapperScan("com.example.wxnotion.mapper")
+@MapperScan({"com.example.wxnotion.mapper", "com.example.wxnotion.image.mapper"})
 public class WxNotionApplication {
 
   /**
