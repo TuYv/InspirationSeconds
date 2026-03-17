@@ -95,7 +95,12 @@ public class GuestModeTestController {
                                                @RequestParam String newToken, 
                                                @RequestParam String newDbId) {
         // 触发迁移
-        migrationService.migrateSinglePage(srcToken, srcDbId, newToken, newDbId);
+        try {
+            migrationService.migrateAllPages(srcToken, srcDbId, newToken, newDbId);
+        } catch (Exception e) {
+            log.error("测试迁移失败", e);
+            throw new RuntimeException("迁移失败: " + e.getMessage(), e);
+        }
 
     }
 

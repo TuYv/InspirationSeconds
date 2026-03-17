@@ -41,3 +41,10 @@ src/main/resources/application.yml
 
 # Nginx config (contains server-specific paths, managed separately)
 nginx/
+/.agents/
+/.claude/
+/.codebuddy/
+/.idea/
+/.qwen/
+/.trae/
+/docs/

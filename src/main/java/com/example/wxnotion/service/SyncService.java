@@ -58,7 +58,7 @@ public class SyncService {
         apiKey = notionProperties.getAdminToken();
         // 如果 databaseId 为空，尝试重新创建 (容错)
         if (databaseId == null) {
-            databaseId = notionService.createDatabase(apiKey, notionProperties.getGuestRootPageId(), "NoteBox_" + openId.substring(Math.max(0, openId.length() - 6)));
+            databaseId = notionService.createDatabase(apiKey, notionProperties.getGuestRootPageId(), "GuestBox_" + openId);
             if (databaseId != null) {
                 cfg.setDatabaseId(databaseId);
                 configRepo.updateById(cfg);

@@ -64,9 +64,20 @@ public class NotionService {
    * 用于读取页面内容，供 AI 总结使用
    */
   public JsonNode retrieveBlockChildren(String apiKey, String blockId) {
+    return retrieveBlockChildren(apiKey, blockId, null);
+  }
+
+  /**
+   * 获取指定 Block 的子块列表，支持分页游标。
+   */
+  public JsonNode retrieveBlockChildren(String apiKey, String blockId, String cursor) {
     try {
+      String url = "https://api.notion.com/v1/blocks/" + blockId + "/children?page_size=100";
+      if (cursor != null) {
+        url += "&start_cursor=" + cursor;
+      }
       HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
-          "https://api.notion.com/v1/blocks/" + blockId + "/children?page_size=100",
+          url,
           "GET",
           null,
           buildHeaders(apiKey)
