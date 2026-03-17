@@ -76,7 +76,11 @@
 
     <!-- Change connection wizard -->
     <section class="panel" ref="wizardSection">
-      <div class="panel-title">修改连接</div>
+      <div class="panel-title collapsible" @click="wizardOpen = account?.isGuest || !wizardOpen">
+        修改连接
+        <span v-if="!account?.isGuest" class="collapse-icon">{{ wizardOpen ? '▲' : '▼' }}</span>
+      </div>
+      <template v-if="wizardOpen">
 
       <!-- Step indicator -->
       <div class="steps">
@@ -95,7 +99,7 @@
           <label class="field">
             <span>Integration Token</span>
             <input v-model.trim="notionToken" type="password"
-                   placeholder="secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+                   placeholder="ntn_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
           </label>
         </div>
         <div v-if="tokenError" class="state error">{{ tokenError }}</div>
@@ -136,6 +140,7 @@
         <span class="success-icon">✓</span>
         <p>配置已更新！正在跳转...</p>
       </div>
+      </template>
     </section>
   </div>
 </template>
@@ -189,6 +194,7 @@ async function copyDbId() {
 
 const wizardSection = ref<HTMLElement | null>(null);
 const dailyCardEnabled = ref(true);
+const wizardOpen = ref(false);
 
 function scrollToWizard() {
   wizardSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -270,6 +276,7 @@ onMounted(async () => {
       const data: ConfigView = await resp.json();
       account.value = data;
       dailyCardEnabled.value = data.dailyCardEnabled ?? true;
+      wizardOpen.value = !!data.isGuest;
     }
   } finally {
     accountLoading.value = false;
@@ -479,6 +486,21 @@ onMounted(async () => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.panel-title.collapsible {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.panel-title.collapsible:hover { color: var(--ink); }
+
+.collapse-icon {
+  font-size: 10px;
   color: var(--muted);
 }
 
