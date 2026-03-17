@@ -1,6 +1,7 @@
 package com.example.wxnotion.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.service.NotionService;
@@ -28,6 +29,7 @@ public class NotionBrowserController {
 
     private final UserConfigRepository userConfigRepository;
     private final NotionService notionService;
+    private final NotionProperties notionProperties;
 
     @Value("${security.aesKey}")
     private String aesKey;
@@ -46,7 +48,7 @@ public class NotionBrowserController {
         UserConfig cfg = getConfig(openId);
         if (cfg == null) return ResponseEntity.status(401).body(Map.of("error", "no_config"));
 
-        String apiKey = AesUtil.decrypt(aesKey, cfg.getEncryptedApiKey());
+        String apiKey = resolveApiKey(cfg);
         String databaseId = cfg.getDatabaseId();
         String prefix = String.format("%04d-%02d-", year, month);
 
@@ -87,7 +89,7 @@ public class NotionBrowserController {
         if (cfg == null) return ResponseEntity.ok(Map.of("blockCount", 0));
 
         try {
-            String apiKey = AesUtil.decrypt(aesKey, cfg.getEncryptedApiKey());
+            String apiKey = resolveApiKey(cfg);
             JsonNode blocks = notionService.retrieveBlockChildren(apiKey, pageId);
             int count = 0;
             if (blocks != null && blocks.has("results") && blocks.get("results").isArray()) {
@@ -112,7 +114,7 @@ public class NotionBrowserController {
         UserConfig cfg = getConfig(openId);
         if (cfg == null) return ResponseEntity.status(401).body(Map.of("error", "no_config"));
 
-        String apiKey = AesUtil.decrypt(aesKey, cfg.getEncryptedApiKey());
+        String apiKey = resolveApiKey(cfg);
 
         JsonNode blocks = notionService.retrieveBlockChildren(apiKey, pageId);
         if (blocks == null) {
@@ -134,6 +136,13 @@ public class NotionBrowserController {
     private UserConfig getConfig(String openId) {
         return userConfigRepository.selectOne(
                 new QueryWrapper<UserConfig>().eq("open_id", openId));
+    }
+
+    private String resolveApiKey(UserConfig cfg) {
+        if (Boolean.TRUE.equals(cfg.getIsGuest())) {
+            return notionProperties.getAdminToken();
+        }
+        return AesUtil.decrypt(aesKey, cfg.getEncryptedApiKey());
     }
 
     private String extractPageTitle(JsonNode page) {

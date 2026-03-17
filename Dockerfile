@@ -14,11 +14,11 @@ WORKDIR /app
 
 # 安装中文字体 (使用清华源加速，如果需要)
 # eclipse-temurin:17-jre 基于 Ubuntu/Debian
-RUN apt-get update && \
-    apt-get install -y fonts-noto-cjk fontconfig && \
-    fc-cache -fv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    apt-get install -y --no-install-recommends fonts-noto-cjk fontconfig && \
+    fc-cache -fv
 
 ENV SPRING_PROFILES_ACTIVE=prod
 COPY --from=build /app/target/*.jar /app/app.jar
