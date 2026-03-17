@@ -48,3 +48,4 @@ nginx/
 /.qwen/
 /.trae/
 /docs/
+/skills-lock.json

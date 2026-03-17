@@ -25,8 +25,10 @@
             <span class="field-value">{{ account.appType }}</span>
           </div>
           <div class="field-row">
-            <span class="field-label">访客账号</span>
-            <span class="field-value">{{ account.isGuest ? '是' : '否' }}</span>
+            <span class="field-label">账号类型</span>
+            <span :class="['badge', account.isGuest ? 'guest' : 'regular']">
+              {{ account.isGuest ? '访客用户' : '正式用户' }}
+            </span>
           </div>
           <div class="field-row db-row">
             <span class="field-label">Notion 数据库 ID</span>
@@ -38,11 +40,42 @@
             </div>
           </div>
         </div>
+
+        <!-- 访客升级提醒 -->
+        <div v-if="account.isGuest" class="guest-banner">
+          <div class="guest-banner-text">
+            <span class="guest-banner-icon">✦</span>
+            <div>
+              <p class="guest-banner-title">当前使用访客模式</p>
+              <p class="guest-banner-desc">笔记保存在公共工作区，配置专属 Notion 可升级为正式用户。</p>
+            </div>
+          </div>
+          <button class="guest-banner-btn" @click="scrollToWizard">立即配置 →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Notification preferences -->
+    <section class="panel pref-panel">
+      <div class="panel-title">通知偏好</div>
+      <div class="pref-row">
+        <div class="pref-info">
+          <span class="pref-label">每日推图</span>
+          <span class="pref-desc">每天 08:00 推送 AI 日签卡片到微信</span>
+        </div>
+        <button
+          :class="['toggle', { on: dailyCardEnabled }]"
+          :aria-checked="dailyCardEnabled"
+          role="switch"
+          @click="toggleDailyCard"
+        >
+          <span class="toggle-thumb" />
+        </button>
       </div>
     </section>
 
     <!-- Change connection wizard -->
-    <section class="panel">
+    <section class="panel" ref="wizardSection">
       <div class="panel-title">修改连接</div>
 
       <!-- Step indicator -->
@@ -109,6 +142,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import type { ComponentPublicInstance } from 'vue';
 import { useRouter } from 'vue-router';
 import { apiFetch } from '../utils/api';
 
@@ -121,6 +155,7 @@ type ConfigView = {
   status: string;
   databaseId: string;
   isGuest: boolean | null;
+  dailyCardEnabled: boolean;
   updatedAt: string | null;
   nickname?: string | null;
   avatarUrl?: string | null;
@@ -150,6 +185,13 @@ async function copyDbId() {
   await navigator.clipboard.writeText(id);
   copyDone.value = true;
   setTimeout(() => { copyDone.value = false; }, 2000);
+}
+
+const wizardSection = ref<HTMLElement | null>(null);
+const dailyCardEnabled = ref(true);
+
+function scrollToWizard() {
+  wizardSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ── Wizard ────────────────────────────────────────────────────────────
@@ -212,11 +254,22 @@ const saveConfig = async () => {
   }
 };
 
+async function toggleDailyCard() {
+  const next = !dailyCardEnabled.value;
+  dailyCardEnabled.value = next;
+  await apiFetch('/api/user/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify({ dailyCardEnabled: next }),
+  });
+}
+
 onMounted(async () => {
   try {
     const resp = await apiFetch('/api/user/me');
     if (resp.ok) {
-      account.value = await resp.json();
+      const data: ConfigView = await resp.json();
+      account.value = data;
+      dailyCardEnabled.value = data.dailyCardEnabled ?? true;
     }
   } finally {
     accountLoading.value = false;
@@ -330,6 +383,84 @@ onMounted(async () => {
 }
 .copy-btn.copied { background: rgba(45, 122, 74, 0.15); color: #1a5c35; }
 .copy-btn:hover { background: rgba(15, 23, 42, 0.1); }
+
+/* Account type badges */
+.badge.guest {
+  background: rgba(234, 179, 8, 0.15);
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.badge.regular {
+  background: rgba(45, 122, 74, 0.12);
+  color: #1a5c35;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* Guest upgrade banner */
+.guest-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  background: rgba(234, 179, 8, 0.08);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 14px;
+  flex-wrap: wrap;
+}
+
+.guest-banner-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.guest-banner-icon {
+  font-size: 16px;
+  color: #b45309;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.guest-banner-title {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.guest-banner-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #b45309;
+  line-height: 1.5;
+}
+
+.guest-banner-btn {
+  background: #b45309;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.guest-banner-btn:hover {
+  background: #92400e;
+  transform: translateY(-1px);
+}
 
 /* Wizard panel */
 .panel {
@@ -486,6 +617,68 @@ button.primary:not(:disabled):hover {
 }
 
 button.primary:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Preferences panel */
+.pref-panel { padding: 20px 28px; }
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pref-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pref-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pref-desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Toggle switch */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: rgba(15, 23, 42, 0.15);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+  padding: 0;
+}
+
+.toggle.on {
+  background: #2d7a4a;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  transition: transform 0.2s;
+  display: block;
+}
+
+.toggle.on .toggle-thumb {
+  transform: translateX(18px);
+}
 
 button.ghost {
   background: rgba(15, 23, 42, .05);

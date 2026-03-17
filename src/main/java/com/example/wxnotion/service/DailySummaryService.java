@@ -147,11 +147,19 @@ public class DailySummaryService {
         // 4. 写回 Notion (转换为 Markdown 写入 Description)
         boolean success = notionService.updatePageProperty(apiKey, pageId, "Description", summaryObj.toMarkdown());
         
-        // 5. 生成并推送日签图片 (使用解析后的对象)
-        try {
-            pushDailyCard(userConfig.getOpenId(), summaryObj);
-        } catch (Exception e) {
-            log.error("日签图片推送失败", e);
+        // 5. 生成并推送日签图片（用户可通过设置关闭）
+        com.example.wxnotion.model.PromptConfig promptConfig = userConfig.getPromptConfig();
+        boolean cardEnabled = promptConfig == null
+                || promptConfig.getDailyCardEnabled() == null
+                || promptConfig.getDailyCardEnabled();
+        if (cardEnabled) {
+            try {
+                pushDailyCard(userConfig.getOpenId(), summaryObj);
+            } catch (Exception e) {
+                log.error("日签图片推送失败", e);
+            }
+        } else {
+            log.info("用户 {} 已关闭每日推图，跳过图片生成", userConfig.getOpenId());
         }
 
         if (success) {

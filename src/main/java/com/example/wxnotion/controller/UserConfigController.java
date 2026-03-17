@@ -83,6 +83,7 @@ public class UserConfigController {
     private LocalDateTime updatedAt;
     private String nickname;
     private String avatarUrl;
+    private boolean dailyCardEnabled;
 
     public static UserConfigView from(UserConfig cfg) {
       UserConfigView view = new UserConfigView();
@@ -95,6 +96,8 @@ public class UserConfigController {
       view.setUpdatedAt(cfg.getUpdatedAt());
       view.setNickname(cfg.getNickname());
       view.setAvatarUrl(cfg.getAvatarUrl());
+      com.example.wxnotion.model.PromptConfig pc = cfg.getPromptConfig();
+      view.setDailyCardEnabled(pc == null || pc.getDailyCardEnabled() == null || pc.getDailyCardEnabled());
       return view;
     }
   }

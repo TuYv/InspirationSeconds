@@ -90,11 +90,39 @@ public class UserController {
     }
   }
 
+  /**
+   * 更新用户偏好设置（不涉及 Notion 凭据）。
+   */
+  @PatchMapping("/preferences")
+  public ResponseEntity<Void> updatePreferences(
+      @AuthenticationPrincipal String openId,
+      @RequestBody PreferencesRequest req) {
+
+    UserConfig cfg = userConfigRepository.selectOne(
+        new QueryWrapper<UserConfig>().eq("open_id", openId));
+    if (cfg == null) return ResponseEntity.notFound().build();
+
+    com.example.wxnotion.model.PromptConfig pc = cfg.getPromptConfig();
+    if (pc == null) pc = new com.example.wxnotion.model.PromptConfig();
+    if (req.getDailyCardEnabled() != null) {
+      pc.setDailyCardEnabled(req.getDailyCardEnabled());
+    }
+    cfg.setPromptConfig(pc);
+    cfg.setUpdatedAt(LocalDateTime.now());
+    userConfigRepository.updateById(cfg);
+    return ResponseEntity.ok().build();
+  }
+
   @Data
   public static class SaveConfigRequest {
     @NotBlank
     private String notionToken;
     @NotBlank
     private String databaseId;
+  }
+
+  @Data
+  public static class PreferencesRequest {
+    private Boolean dailyCardEnabled;
   }
 }

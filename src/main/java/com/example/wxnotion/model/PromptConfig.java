@@ -34,4 +34,12 @@ public class PromptConfig {
     @JsonProperty("keywords")
     @JSONField(name = "keywords")
     private String keywords;
+
+    /**
+     * 是否开启每日推图（日签卡片），默认 true。
+     * false 时 DailySummaryService 跳过图片生成与推送。
+     */
+    @JsonProperty("daily_card_enabled")
+    @JSONField(name = "daily_card_enabled")
+    private Boolean dailyCardEnabled;
 }
