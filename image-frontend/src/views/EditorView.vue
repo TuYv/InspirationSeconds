@@ -3,7 +3,7 @@
     <!-- Top bar -->
     <header class="topbar">
       <div class="topbar-left">
-        <span class="logo">image.soloship.top</span>
+        <span class="logo">md2img.soloship.top</span>
       </div>
       <div class="topbar-center">
         <!-- Theme selector -->

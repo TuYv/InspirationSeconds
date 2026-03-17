@@ -36,4 +36,4 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-log "Done. image.soloship.top updated."
+log "Done. md2img.soloship.top updated."
