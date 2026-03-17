@@ -25,5 +25,12 @@ services:
       NOTION_ADMIN_TOKEN: ${NOTION_ADMIN_TOKEN}
       NOTION_GUEST_ROOT_PAGE_ID: ${NOTION_GUEST_ROOT_PAGE_ID}
       JWT_SECRET: ${JWT_SECRET}
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL:-https://image.soloship.top}
+      IMAGE_THUMBNAIL_DIR: /data/image-thumbnails
+    volumes:
+      - image-thumbnails:/data/image-thumbnails
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+volumes:
+  image-thumbnails:

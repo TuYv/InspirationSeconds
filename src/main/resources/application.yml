@@ -41,6 +41,10 @@ notion:
   adminToken: ${NOTION_ADMIN_TOKEN:admin_token}
   guestRootPageId: ${NOTION_GUEST_ROOT_PAGE_ID:pageId}
 
+image:
+  thumbnail-dir: ${IMAGE_THUMBNAIL_DIR:/tmp/image-thumbnails}
+  thumbnail-base-url: ${IMAGE_BASE_URL:http://localhost:8080}/thumbnails
+
 ai:
   # 默认使用 SiliconFlow (硅基流动) 的 OpenAI 兼容接口
   # 注册地址: https://cloud.siliconflow.cn/ (送大量免费额度)

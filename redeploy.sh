@@ -18,22 +18,22 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 2. 构建前端
-log "Building frontend..."
+# 2. 构建 wx 前端
+log "Building wx-frontend..."
 cd frontend
 npm install --silent
 npm run build
 if [ $? -ne 0 ]; then
-    error "Frontend build failed!"
+    error "wx-frontend build failed!"
     exit 1
 fi
 cd ..
 
-# 3. 部署前端静态文件
-log "Deploying frontend to /var/www/wx-frontend/..."
+# 3. 部署 wx 前端静态文件
+log "Deploying wx-frontend to /var/www/wx-frontend/..."
 rsync -a --delete frontend/dist/ /var/www/wx-frontend/
 if [ $? -ne 0 ]; then
-    error "Frontend deploy failed!"
+    error "wx-frontend deploy failed!"
     exit 1
 fi
 

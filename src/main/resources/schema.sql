@@ -15,3 +15,16 @@ CREATE TABLE IF NOT EXISTS user_config (
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_user_config_is_guest ON user_config(is_guest);
+
+CREATE TABLE IF NOT EXISTS themes (
+  id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name          VARCHAR(100)  NOT NULL,
+  description   TEXT,
+  css           LONGTEXT      NOT NULL,
+  preview_md    TEXT,
+  author_name   VARCHAR(50)   NOT NULL DEFAULT '匿名',
+  thumbnail_url VARCHAR(500),
+  star_count    INT           NOT NULL DEFAULT 0,
+  is_builtin    BOOLEAN       NOT NULL DEFAULT FALSE,
+  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
