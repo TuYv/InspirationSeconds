@@ -6,6 +6,7 @@ import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.ConfigStatus;
 import com.example.wxnotion.model.NoteAppType;
 import com.example.wxnotion.model.UserConfig;
+import com.example.wxnotion.service.MigrationService;
 import com.example.wxnotion.util.AesUtil;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 public class UserController {
 
   private final UserConfigRepository userConfigRepository;
+  private final MigrationService migrationService;
 
   @Value("${security.aesKey}")
   private String aesKey;
@@ -66,6 +68,14 @@ public class UserController {
       userConfigRepository.insert(cfg);
       return ResponseEntity.ok(UserConfigController.UserConfigView.from(cfg));
     } else {
+      // 访客转正：触发异步数据迁移
+      if (Boolean.TRUE.equals(existing.getIsGuest())) {
+        migrationService.startMigration(existing, req.getNotionToken(), req.getDatabaseId());
+        // 迁移过程中 startMigration 会异步更新配置，这里先返回当前状态
+        existing.setMigrationStatus("MIGRATING");
+        return ResponseEntity.ok(UserConfigController.UserConfigView.from(existing));
+      }
+
       userConfigRepository.update(null, new UpdateWrapper<UserConfig>()
           .eq("open_id", openId)
           .set("encrypted_api_key", encryptedToken)

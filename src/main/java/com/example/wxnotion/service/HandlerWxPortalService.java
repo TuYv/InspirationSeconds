@@ -21,7 +21,8 @@ import java.io.File;
 @RequiredArgsConstructor
 public class HandlerWxPortalService implements ApplicationContextAware {
 
-  private final ConfigFlowService configFlowService;
+  private static final String WEB_CONFIG_URL = "https://wx.soloship.top";
+
   private final SyncService syncService;
   private final WxMpService wxMpService;
   private final WechatService wechatService;
@@ -34,16 +35,16 @@ public class HandlerWxPortalService implements ApplicationContextAware {
     }
     return proxyInstance;
   }
+
   /**
    * 微信消息处理入口。
-   * 根据文本内容匹配指令或进入配置流程，否则执行同步。
+   * 事件消息（关注等）直接处理，其他消息异步同步到 Notion。
    */
   public void handle(WxMpXmlMessage in) {
     String openId = in.getFromUser();
     String msgType = in.getMsgType();
     String content = StringUtils.defaultString(in.getContent(), "").trim();
 
-    // 立即返回空响应，避免超过5秒超时
     log.info("接收到微信消息，开始异步处理。用户: {}, 消息类型: {}", openId, msgType);
 
     this.getThis().processMessageAsync(in, openId, msgType, content);
@@ -58,37 +59,44 @@ public class HandlerWxPortalService implements ApplicationContextAware {
 
     try {
       String reply = switch (msgType) {
-          case "text" -> processTextMessage(openId, content);
+          case "event" -> processEvent(in, openId);
+          case "text" -> syncService.sync(openId, content);
           case "image" -> processImageMessage(in, openId);
           default -> "暂不支持处理此类消息";
       };
 
-      // 向用户推送处理结果(通过客服消息接口)
-      wechatService.pushMessageToUser(openId, reply);
+      if (reply != null) {
+        wechatService.pushMessageToUser(openId, reply);
+      }
     } catch (Exception e) {
       log.error("异步处理消息失败，用户: {}", openId, e);
-      // 出错时也推送错误信息给用户
       wechatService.pushMessageToUser(openId, "处理您的消息时出现错误，请稍后重试");
     }
   }
 
   /**
-   * 处理文本消息
+   * 处理微信事件（关注、取消关注等）
    */
-  public String processTextMessage(String openId, String content) {
-
-    if (content.startsWith("配置Notion") || content.startsWith("修改Notion配置")
-     || content.startsWith("配置notion") || content.startsWith("修改notion配置")) {
-      // 进入/重置配置流程
-      return configFlowService.startOrReset(openId);
-    } else if (content.startsWith("查询我的配置")) {
-      // 查询当前配置状态
-      return configFlowService.queryConfig(openId);
-    } else {
-      // 若当前处于配置流程，则继续处理；否则执行内容同步
-      String flowReply = configFlowService.handleInput(openId, content);
-      return flowReply != null ? flowReply : syncService.sync(openId, content);
-    }
+  private String processEvent(WxMpXmlMessage in, String openId) {
+    String event = StringUtils.defaultString(in.getEvent(), "");
+    return switch (event.toLowerCase()) {
+      case "subscribe" -> {
+        log.info("新用户关注: {}", openId);
+        yield "欢迎关注灵感妙记！\n\n"
+            + "在这里发送的文字会自动同步到你的 Notion 笔记本。\n\n"
+            + "首次使用请先完成配置：\n"
+            + WEB_CONFIG_URL + "\n\n"
+            + "配置完成后，直接发消息就能记录啦。";
+      }
+      case "unsubscribe" -> {
+        log.info("用户取消关注: {}", openId);
+        yield null;
+      }
+      default -> {
+        log.info("未处理的事件类型: {}, 用户: {}", event, openId);
+        yield null;
+      }
+    };
   }
 
   /**

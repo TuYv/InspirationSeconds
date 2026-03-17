@@ -46,7 +46,7 @@ public class SyncService {
     
     // 2. 检查配置状态 (非访客必须 ACTIVE)
     if (!Boolean.TRUE.equals(cfg.getIsGuest()) && cfg.getStatus() != ConfigStatus.ACTIVE) {
-      return "尚未完成配置或配置未启用。发送‘配置Notion’开始配置";
+      return "尚未完成配置，请前往网页端完成设置：\nhttps://wx.soloship.top";
     }
     
     // 3. 确定 API Key 和 Database ID
