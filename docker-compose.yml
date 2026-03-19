@@ -17,6 +17,9 @@ services:
       WX_APP_SECRET: ${WX_APP_SECRET}
       WX_TOKEN: ${WX_TOKEN}
       WX_ENCODING_AES_KEY: ${WX_ENCODING_AES_KEY}
+      WX_TASK_TEMPLATE_ID: ${WX_TASK_TEMPLATE_ID:}
+      WX_OAUTH_CALLBACK_BASE: ${WX_OAUTH_CALLBACK_BASE:https://wx.api.soloship.top}
+      WX_OAUTH_RETURN_URL: ${WX_OAUTH_RETURN_URL:https://wx.soloship.top}
       AES_KEY: ${AES_KEY}
       NOTION_VERSION: ${NOTION_VERSION}
       AI_BASE_URL: ${AI_BASE_URL}
@@ -24,7 +27,7 @@ services:
       AI_MODEL: ${AI_MODEL}
       NOTION_ADMIN_TOKEN: ${NOTION_ADMIN_TOKEN}
       NOTION_GUEST_ROOT_PAGE_ID: ${NOTION_GUEST_ROOT_PAGE_ID}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:changeme-changeme-changeme-changeme}
       IMAGE_BASE_URL: ${IMAGE_BASE_URL:-https://md2img.soloship.top}
       IMAGE_THUMBNAIL_DIR: /data/image-thumbnails
     volumes:
