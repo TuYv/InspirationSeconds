@@ -51,3 +51,6 @@ nginx/
 /.trae/
 /docs/
 /skills-lock.json
+/frontend/dist/
+/frontend/package-lock.json
+/image-frontend/package-lock.json
