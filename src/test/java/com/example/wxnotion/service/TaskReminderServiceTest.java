@@ -1,7 +1,7 @@
 package com.example.wxnotion.service;
 
+import com.example.wxnotion.model.CronResult;
 import com.example.wxnotion.model.UserConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.quartz.*;
@@ -22,28 +22,32 @@ public class TaskReminderServiceTest {
     void setUp() throws Exception {
         aiService = mock(AiService.class);
         scheduler = mock(Scheduler.class);
-        service = new TaskReminderService(scheduler, aiService, new ObjectMapper());
+        service = new TaskReminderService(scheduler, aiService);
         user = new UserConfig();
         user.setOpenId("u1");
     }
 
     @Test
-    void generateCron_validAiResponse() {
-        when(aiService.chat(any(UserConfig.class), any(), any())).thenReturn("{\"cron\":\"0 0 9 * * ?\"}");
+    void generateCron_validAiResponse() throws Exception {
+        CronResult result = new CronResult();
+        result.cron = "0 0 9 * * ?";
+        when(aiService.chatForObject(any(UserConfig.class), any(), any(), eq(CronResult.class))).thenReturn(result);
         String cron = service.generateCronForTask(user, "晨跑", "recurring", "每天");
         assertEquals("0 0 9 * * ?", cron);
     }
 
     @Test
-    void generateCron_invalidAiResponseFallsBack() {
-        when(aiService.chat(any(UserConfig.class), any(), any())).thenReturn("{\"cron\":\"not-a-cron\"}");
+    void generateCron_invalidAiResponseFallsBack() throws Exception {
+        CronResult result = new CronResult();
+        result.cron = "not-a-cron";
+        when(aiService.chatForObject(any(UserConfig.class), any(), any(), eq(CronResult.class))).thenReturn(result);
         String cron = service.generateCronForTask(user, "任务", "once", null);
         assertEquals("0 0 20 * * ?", cron);
     }
 
     @Test
-    void generateCron_malformedJsonFallsBack() {
-        when(aiService.chat(any(UserConfig.class), any(), any())).thenReturn("oops, not json");
+    void generateCron_malformedJsonFallsBack() throws Exception {
+        when(aiService.chatForObject(any(UserConfig.class), any(), any(), eq(CronResult.class))).thenThrow(new java.io.IOException("bad json"));
         String cron = service.generateCronForTask(user, "任务", "once", null);
         assertEquals("0 0 20 * * ?", cron);
     }

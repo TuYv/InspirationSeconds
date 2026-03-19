@@ -2,6 +2,7 @@ package com.example.wxnotion.service;
 
 import com.example.wxnotion.mapper.TaskDraftMapper;
 import com.example.wxnotion.model.TaskDraft;
+import com.example.wxnotion.model.TaskDraftData;
 import com.example.wxnotion.model.TaskDetectionResult;
 import com.example.wxnotion.model.TaskTerminationResult;
 import com.example.wxnotion.model.UserConfig;
@@ -10,9 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -51,9 +50,9 @@ public class ServiceSignatureTest {
         TaskDraftService svc = new TaskDraftService(draftMapper, aiService);
 
         TaskDraft draft = new TaskDraft();
-        Map<String, Object> draftJson = new LinkedHashMap<>();
-        draftJson.put("task_type", "recurring");
-        draftJson.put("missing_fields", new ArrayList<>(List.of("name")));
+        TaskDraftData draftJson = new TaskDraftData();
+        draftJson.setTaskType("recurring");
+        draftJson.setMissingFields(new ArrayList<>(List.of("name")));
         draft.setDraftJson(draftJson);
         draft.setConversationLog(new ArrayList<>());
 

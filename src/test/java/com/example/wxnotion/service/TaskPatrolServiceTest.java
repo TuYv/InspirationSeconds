@@ -1,9 +1,8 @@
 package com.example.wxnotion.service;
 
 import com.example.wxnotion.mapper.UserConfigRepository;
-import com.example.wxnotion.model.ConfigStatus;
+import com.example.wxnotion.model.TaskPatrolItem;
 import com.example.wxnotion.model.UserConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -26,12 +25,12 @@ public class TaskPatrolServiceTest {
         taskNotionService = mock(TaskNotionService.class);
         wechatService = mock(WechatService.class);
         aiService = mock(AiService.class);
-        service = new TaskPatrolService(userConfigRepository, taskNotionService, wechatService, aiService, new ObjectMapper());
+        service = new TaskPatrolService(userConfigRepository, taskNotionService, wechatService, aiService);
     }
 
     @Test
     void patrol_noActiveUsers_doesNothing() {
-        when(userConfigRepository.selectList(any())).thenReturn(List.of());
+        when(userConfigRepository.selectActiveUsers()).thenReturn(List.of());
         service.patrol();
         verifyNoInteractions(taskNotionService);
         verifyNoInteractions(wechatService);
@@ -41,11 +40,17 @@ public class TaskPatrolServiceTest {
     void patrol_aiReturnsReminders_pushesMessages() {
         UserConfig u = new UserConfig();
         u.setOpenId("u1");
-        when(userConfigRepository.selectList(any())).thenReturn(List.of(u));
+        when(userConfigRepository.selectActiveUsers()).thenReturn(List.of(u));
         when(taskNotionService.getActiveTaskSummary(u)).thenReturn(
                 "[{\"id\":\"p1\",\"name\":\"读书计划\"}]");
-        when(aiService.chat(any(com.example.wxnotion.model.UserConfig.class), any(), any())).thenReturn(
-                "[{\"task_id\":\"p1\",\"task_name\":\"读书计划\",\"remind_message\":\"记得更新进度哦\",\"progress\":\"\"}]");
+        TaskPatrolItem item = new TaskPatrolItem();
+        item.taskId = "p1";
+        item.taskName = "读书计划";
+        item.remindMessage = "记得更新进度哦";
+        item.progress = "";
+        try {
+            when(aiService.chatForList(any(UserConfig.class), any(), any(), any())).thenReturn(List.of(item));
+        } catch (Exception e) { throw new RuntimeException(e); }
 
         service.patrol();
 
@@ -56,10 +61,12 @@ public class TaskPatrolServiceTest {
     void patrol_aiReturnsEmpty_noMessages() {
         UserConfig u = new UserConfig();
         u.setOpenId("u1");
-        when(userConfigRepository.selectList(any())).thenReturn(List.of(u));
+        when(userConfigRepository.selectActiveUsers()).thenReturn(List.of(u));
         when(taskNotionService.getActiveTaskSummary(u)).thenReturn(
                 "[{\"id\":\"p1\",\"name\":\"读书计划\"}]");
-        when(aiService.chat(any(com.example.wxnotion.model.UserConfig.class), any(), any())).thenReturn("[]");
+        try {
+            when(aiService.chatForList(any(UserConfig.class), any(), any(), any())).thenReturn(List.of());
+        } catch (Exception e) { throw new RuntimeException(e); }
 
         service.patrol();
 
@@ -70,7 +77,7 @@ public class TaskPatrolServiceTest {
     void patrol_oneUserFails_continuesForOthers() {
         UserConfig u1 = new UserConfig(); u1.setOpenId("u1");
         UserConfig u2 = new UserConfig(); u2.setOpenId("u2");
-        when(userConfigRepository.selectList(any())).thenReturn(List.of(u1, u2));
+        when(userConfigRepository.selectActiveUsers()).thenReturn(List.of(u1, u2));
         when(taskNotionService.getActiveTaskSummary(u1)).thenThrow(new RuntimeException("Notion error"));
         when(taskNotionService.getActiveTaskSummary(u2)).thenReturn("[]");
 

@@ -1,9 +1,9 @@
 package com.example.wxnotion.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.TaskDetectionResult;
 import com.example.wxnotion.model.TaskDraft;
+import com.example.wxnotion.model.TaskDraftData;
 import com.example.wxnotion.model.TaskTerminationResult;
 import com.example.wxnotion.model.UserConfig;
 import me.chanjar.weixin.mp.api.WxMpService;
@@ -13,9 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationContext;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -58,7 +56,7 @@ public class TaskMessageRoutingTest {
     @Test
     void ordinaryNote_callsSyncService() {
         UserConfig user = makeUser();
-        when(userConfigRepository.selectOne(any(QueryWrapper.class))).thenReturn(user);
+        when(userConfigRepository.selectByOpenId(anyString())).thenReturn(user);
         when(taskDraftService.findPendingDrafts(anyString())).thenReturn(List.of());
         when(taskDetectionService.detectTask(any(), anyString(), anyString())).thenReturn(notTaskResult());
         when(taskNotionService.getActiveTaskSummary(any())).thenReturn("[]");
@@ -78,7 +76,7 @@ public class TaskMessageRoutingTest {
     @Test
     void newTask_doesNotCallSyncService() {
         UserConfig user = makeUser();
-        when(userConfigRepository.selectOne(any(QueryWrapper.class))).thenReturn(user);
+        when(userConfigRepository.selectByOpenId(anyString())).thenReturn(user);
         when(taskDraftService.findPendingDrafts(anyString())).thenReturn(List.of());
         when(taskDetectionService.detectTask(any(), anyString(), anyString())).thenReturn(taskResult());
         when(taskNotionService.getActiveTaskSummary(any())).thenReturn("[]");
@@ -98,7 +96,7 @@ public class TaskMessageRoutingTest {
     @Test
     void pendingDraftMatched_doesNotCallSyncService() {
         UserConfig user = makeUser();
-        when(userConfigRepository.selectOne(any(QueryWrapper.class))).thenReturn(user);
+        when(userConfigRepository.selectByOpenId(anyString())).thenReturn(user);
         TaskDraft draft = makeDraft(List.of("end_condition"));
         when(taskDraftService.findPendingDrafts(anyString())).thenReturn(List.of(draft));
         when(taskDraftService.matchReplyToDraft(any(), anyString())).thenReturn(draft);
@@ -115,7 +113,7 @@ public class TaskMessageRoutingTest {
     @Test
     void relatedTask_routesToProgressUpdate() {
         UserConfig user = makeUser();
-        when(userConfigRepository.selectOne(any(QueryWrapper.class))).thenReturn(user);
+        when(userConfigRepository.selectByOpenId(anyString())).thenReturn(user);
         when(taskDraftService.findPendingDrafts(anyString())).thenReturn(List.of());
         when(taskNotionService.getActiveTaskSummary(any())).thenReturn("[]");
 
@@ -139,7 +137,7 @@ public class TaskMessageRoutingTest {
     @Test
     void terminationIntent_executesTermination() {
         UserConfig user = makeUser();
-        when(userConfigRepository.selectOne(any(QueryWrapper.class))).thenReturn(user);
+        when(userConfigRepository.selectByOpenId(anyString())).thenReturn(user);
         when(taskDraftService.findPendingDrafts(anyString())).thenReturn(List.of());
         when(taskDetectionService.detectTask(any(), anyString(), anyString())).thenReturn(notTaskResult());
         when(taskNotionService.getActiveTaskSummary(any())).thenReturn("[]");
@@ -200,9 +198,9 @@ public class TaskMessageRoutingTest {
         TaskDraft d = new TaskDraft();
         d.setId(1L);
         d.setOpenId("openid123");
-        Map<String, Object> draftJson = new LinkedHashMap<>();
-        draftJson.put("name", "每天跑步");
-        draftJson.put("missing_fields", new ArrayList<>(missingFields));
+        TaskDraftData draftJson = new TaskDraftData();
+        draftJson.setName("每天跑步");
+        draftJson.setMissingFields(new ArrayList<>(missingFields));
         d.setDraftJson(draftJson);
         d.setConversationLog(new ArrayList<>());
         d.setStatus("PENDING");

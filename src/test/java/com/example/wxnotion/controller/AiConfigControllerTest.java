@@ -1,6 +1,5 @@
 package com.example.wxnotion.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.service.MigrationService;
@@ -31,7 +30,7 @@ public class AiConfigControllerTest {
     void saveAiConfig_encryptsKey() {
         UserConfig existing = new UserConfig();
         existing.setOpenId("u1");
-        when(repo.selectOne(any(QueryWrapper.class))).thenReturn(existing);
+        when(repo.selectByOpenId(anyString())).thenReturn(existing);
 
         UserController.AiConfigRequest req = new UserController.AiConfigRequest();
         req.setAiBaseUrl("https://api.test/v1");
@@ -57,7 +56,7 @@ public class AiConfigControllerTest {
         UserConfig existing = new UserConfig();
         existing.setOpenId("u1");
         existing.setAiApiKey("some-encrypted-value");
-        when(repo.selectOne(any(QueryWrapper.class))).thenReturn(existing);
+        when(repo.selectByOpenId(anyString())).thenReturn(existing);
 
         UserController.AiConfigRequest req = new UserController.AiConfigRequest();
         req.setAiApiKey("");
