@@ -1,6 +1,5 @@
 package com.example.wxnotion.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.ConfigStatus;
@@ -8,9 +7,9 @@ import com.example.wxnotion.model.NoteAppType;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.service.MigrationService;
 import com.example.wxnotion.util.AesUtil;
+import org.apache.commons.lang3.StringUtils;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,8 +36,7 @@ public class UserController {
   @GetMapping("/me")
   public ResponseEntity<UserConfigController.UserConfigView> me(
       @AuthenticationPrincipal String openId) {
-    UserConfig cfg = userConfigRepository.selectOne(
-        new QueryWrapper<UserConfig>().eq("open_id", openId));
+    UserConfig cfg = userConfigRepository.selectByOpenId(openId);
     if (cfg == null) return ResponseEntity.notFound().build();
     return ResponseEntity.ok(UserConfigController.UserConfigView.from(cfg));
   }
@@ -53,8 +51,7 @@ public class UserController {
 
     String encryptedToken = AesUtil.encrypt(aesKey, req.getNotionToken());
 
-    UserConfig existing = userConfigRepository.selectOne(
-        new QueryWrapper<UserConfig>().eq("open_id", openId));
+    UserConfig existing = userConfigRepository.selectByOpenId(openId);
 
     if (existing == null) {
       UserConfig cfg = new UserConfig();
@@ -98,8 +95,7 @@ public class UserController {
       @AuthenticationPrincipal String openId,
       @RequestBody PreferencesRequest req) {
 
-    UserConfig cfg = userConfigRepository.selectOne(
-        new QueryWrapper<UserConfig>().eq("open_id", openId));
+    UserConfig cfg = userConfigRepository.selectByOpenId(openId);
     if (cfg == null) return ResponseEntity.notFound().build();
 
     com.example.wxnotion.model.PromptConfig pc = cfg.getPromptConfig();
@@ -119,6 +115,41 @@ public class UserController {
     private String notionToken;
     @NotBlank
     private String databaseId;
+  }
+
+  /**
+   * 更新用户自定义 AI 模型配置。
+   * aiApiKey 为空字符串时清除配置（fallback 系统配置）。
+   */
+  @PatchMapping("/ai-config")
+  public ResponseEntity<Void> updateAiConfig(
+      @AuthenticationPrincipal String openId,
+      @RequestBody AiConfigRequest req) {
+
+    UserConfig cfg = userConfigRepository.selectByOpenId(openId);
+    if (cfg == null) return ResponseEntity.notFound().build();
+
+    cfg.setAiBaseUrl(StringUtils.trimToNull(req.getAiBaseUrl()));
+    cfg.setAiModel(StringUtils.trimToNull(req.getAiModel()));
+
+    // 空字符串 = 清除 key；非空 = 加密存储
+    String rawKey = req.getAiApiKey();
+    if (rawKey == null || rawKey.isBlank()) {
+      cfg.setAiApiKey(null);
+    } else {
+      cfg.setAiApiKey(AesUtil.encrypt(aesKey, rawKey));
+    }
+
+    cfg.setUpdatedAt(java.time.LocalDateTime.now());
+    userConfigRepository.updateById(cfg);
+    return ResponseEntity.ok().build();
+  }
+
+  @Data
+  public static class AiConfigRequest {
+    private String aiBaseUrl;
+    private String aiApiKey;
+    private String aiModel;
   }
 
   @Data

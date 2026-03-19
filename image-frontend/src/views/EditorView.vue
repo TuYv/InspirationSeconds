@@ -3,24 +3,33 @@
     <!-- Top bar -->
     <header class="topbar">
       <div class="topbar-left">
-        <span class="logo">md2img.soloship.top</span>
+        <span class="logo">
+          <span class="logo-md">md</span><span class="logo-arrow">→</span><span class="logo-img">img</span>
+        </span>
       </div>
+
+      <div class="topbar-sep"></div>
+
       <div class="topbar-center">
         <!-- Theme selector -->
-        <div class="theme-selector">
-          <select v-model="activeThemeName" @change="onThemeChange">
+        <div class="ctrl-group">
+          <label class="ctrl-label">主题</label>
+          <select v-model="activeThemeName" @change="onThemeChange" class="ctrl-select">
             <optgroup label="内置主题">
               <option v-for="t in builtinThemes" :key="t.name" :value="t.name">{{ t.name }}</option>
             </optgroup>
-            <option v-if="customTheme" :value="customTheme.name">{{ customTheme.name }} (已应用)</option>
+            <option v-if="customTheme" :value="customTheme.name">{{ customTheme.name }} ✦</option>
           </select>
-          <router-link to="/themes" class="btn-secondary" style="text-decoration:none;padding:7px 12px;border-radius:6px;font-size:13px;background:var(--surface2);border:1px solid var(--border);color:var(--text)">浏览画廊</router-link>
+          <router-link to="/themes" class="btn-secondary gallery-btn" style="text-decoration:none">浏览画廊</router-link>
         </div>
 
+        <div class="topbar-sep-sm"></div>
+
         <!-- Canvas size -->
-        <div class="canvas-controls">
-          <select v-model="aspectRatio">
-            <option value="auto">自适应高度</option>
+        <div class="ctrl-group">
+          <label class="ctrl-label">比例</label>
+          <select v-model="aspectRatio" class="ctrl-select ctrl-select-sm">
+            <option value="auto">自适应</option>
             <option value="1:1">1:1</option>
             <option value="4:5">4:5</option>
             <option value="16:9">16:9</option>
@@ -32,16 +41,21 @@
             min="300"
             max="1600"
             step="50"
-            style="width:80px"
-            placeholder="宽度px"
+            class="ctrl-input-width"
+            placeholder="宽度 px"
           />
         </div>
       </div>
+
+      <div class="topbar-sep"></div>
+
       <div class="topbar-right">
-        <button class="btn-secondary" :disabled="exporting" @click="copyImage">
-          {{ copied ? '已复制 ✓' : '复制图片' }}
+        <button class="btn-secondary btn-copy" :disabled="exporting" @click="copyImage">
+          <span class="btn-icon">⊞</span>
+          {{ copied ? '已复制 ✓' : '复制' }}
         </button>
-        <button class="btn-primary" :disabled="exporting" @click="downloadImage">
+        <button class="btn-primary btn-export" :disabled="exporting" @click="downloadImage">
+          <span class="btn-icon">↓</span>
           {{ exporting ? '导出中…' : '导出 PNG' }}
         </button>
       </div>
@@ -50,9 +64,18 @@
     <!-- Main split pane -->
     <div class="split-pane">
       <div class="pane pane-editor">
+        <div class="pane-label">
+          <span class="pane-label-dot pane-label-dot-edit"></span>
+          Markdown
+        </div>
         <MarkdownEditor v-model="markdownText" />
       </div>
       <div class="pane pane-preview">
+        <div class="pane-label pane-label-right">
+          <span class="pane-label-dot pane-label-dot-preview"></span>
+          预览
+          <span class="pane-label-hint">{{ canvasWidth }}px · {{ aspectRatio === 'auto' ? '自适应' : aspectRatio }}</span>
+        </div>
         <div class="preview-scroll">
           <MarkdownPreview
             ref="previewRef"
@@ -174,35 +197,136 @@ async function copyImage() {
   background: var(--bg);
 }
 
+/* ── Topbar ── */
 .topbar {
-  height: 50px;
+  height: 54px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  gap: 12px;
+  gap: 0;
 }
 
-.topbar-left { flex-shrink: 0; }
-.topbar-center { display: flex; align-items: center; gap: 12px; flex: 1; justify-content: center; }
-.topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
-.logo {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  letter-spacing: -0.02em;
+.topbar-left {
+  flex-shrink: 0;
+  padding-right: 16px;
 }
 
-.theme-selector, .canvas-controls {
+.topbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+.topbar-sep-sm {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.topbar-center {
   display: flex;
   align-items: center;
-  gap: 6px;
+  flex: 1;
+  padding: 0 12px;
+  gap: 0;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding-left: 16px;
+}
+
+/* ── Logo ── */
+.logo {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  user-select: none;
+  line-height: 1;
+}
+
+.logo-md {
+  color: var(--text);
+}
+
+.logo-arrow {
+  color: var(--accent);
+  font-weight: 400;
+  margin: 0 1px;
+  font-size: 12px;
+}
+
+.logo-img {
+  color: var(--text-muted);
+}
+
+/* ── Controls ── */
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ctrl-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.ctrl-select {
+  font-size: 12px;
+  padding: 5px 26px 5px 9px;
+  height: 30px;
+}
+
+.ctrl-select-sm {
+  width: 90px;
+}
+
+.ctrl-input-width {
+  width: 80px;
+  font-size: 12px;
+  padding: 5px 9px;
+  height: 30px;
+}
+
+.gallery-btn {
+  font-size: 12px;
+  padding: 5px 11px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ── Export buttons ── */
+.btn-copy, .btn-export {
+  height: 32px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-icon {
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+/* ── Split pane ── */
 .split-pane {
   flex: 1;
   display: flex;
@@ -211,6 +335,8 @@ async function copyImage() {
 
 .pane {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -218,17 +344,66 @@ async function copyImage() {
   border-right: 1px solid var(--border);
 }
 
-.pane-preview {
+/* ── Pane labels ── */
+.pane-label {
+  height: 30px;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow: auto;
-  padding: 24px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pane-label-right {
+  justify-content: flex-start;
+}
+
+.pane-label-hint {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-subtle);
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.pane-label-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pane-label-dot-edit {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent-dim);
+}
+
+.pane-label-dot-preview {
+  background: var(--success);
+  box-shadow: 0 0 6px rgba(78, 203, 139, 0.3);
+}
+
+/* ── Preview area ── */
+.pane-preview {
   background: var(--surface2);
 }
 
 .preview-scroll {
+  flex: 1;
+  overflow: auto;
   display: flex;
+  align-items: flex-start;
   justify-content: center;
+  padding: 28px;
+  background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+  background-size: 24px 24px;
 }
 </style>

@@ -1,6 +1,10 @@
 spring:
   application:
     name: wx-notion
+  quartz:
+    job-store-type: memory
+    properties:
+      org.quartz.threadPool.threadCount: 5
   datasource:
     url: jdbc:h2:mem:wxdb;DB_CLOSE_DELAY=-1;MODE=MySQL
     driver-class-name: org.h2.Driver
@@ -19,6 +23,7 @@ server:
   port: 8080
 
 wx:
+  taskTemplateId: ${WX_TASK_TEMPLATE_ID:}
   appId: ${WX_APP_ID:wx008e59f6858bba86}
   secret: ${WX_APP_SECRET:your-app-secret}
   token: ${WX_TOKEN:your-token}

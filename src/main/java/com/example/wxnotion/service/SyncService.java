@@ -1,6 +1,5 @@
 package com.example.wxnotion.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.ConfigStatus;
@@ -31,7 +30,7 @@ public class SyncService {
    * 将用户文本同步至 Notion。
    */
   public String sync(String openId, String content) {
-    UserConfig cfg = configRepo.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+    UserConfig cfg = configRepo.selectByOpenId(openId);
     
     // 0. 自动初始化访客 (如果配置为空)
     if (cfg == null) {

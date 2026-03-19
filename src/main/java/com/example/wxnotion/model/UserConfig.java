@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ public class UserConfig {
   private String avatarUrl;
   private NoteAppType appType;
   private ConfigStatus status;
+  @JsonIgnore
   private String encryptedApiKey;
   private String databaseId;
   
@@ -48,6 +50,21 @@ public class UserConfig {
    * 迁移状态: NONE, MIGRATING, DONE, FAILED
    */
   private String migrationStatus;
-  
+
+  /**
+   * 用户的 Notion Tasks Database ID（首次创建任务时懒初始化）
+   */
+  private String tasksDatabaseId;
+
+  /** 用户自定义 AI base URL（OpenAI 兼容接口） */
+  private String aiBaseUrl;
+
+  /** 用户自定义 AI API Key（AES 加密存储） */
+  @JsonIgnore
+  private String aiApiKey;
+
+  /** 用户自定义 AI 模型名称 */
+  private String aiModel;
+
   private LocalDateTime updatedAt;
 }

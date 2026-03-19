@@ -1,8 +1,6 @@
 package com.example.wxnotion.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
-import com.example.wxnotion.model.ConfigStatus;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.util.AesUtil;
 import com.example.wxnotion.util.ContentUtil;
@@ -42,7 +40,7 @@ public class WeeklySummaryService {
      */
     public void generateWeeklySummaries() {
         log.info("开始执行每周 AI 总结任务...");
-        List<UserConfig> users = userConfigRepository.selectList(new QueryWrapper<UserConfig>().eq("status", ConfigStatus.ACTIVE));
+        List<UserConfig> users = userConfigRepository.selectActiveUsers();
 
         for (UserConfig user : users) {
             try {
@@ -112,24 +110,6 @@ public class WeeklySummaryService {
     }
 
     private String callAiToAnalyzeWeekly(String dailySummaries) {
-        String systemPrompt = """
-            你是一个极具洞察力的私人生活助理。你的任务是阅读用户过去一周的每日总结（Daily Summary），生成一份深度的“每周回响”周报。
-            
-            请从以下维度进行分析，严格按照 Markdown 格式输出：
-            
-            ## 🌟 本周高光
-            (识别本周最重要的成就、感悟或幸福时刻)
-            
-            ## 📈 状态趋势
-            (分析本周的情绪、精力或关注点的变化趋势)
-            
-            ## 🧩 模式识别
-            (指出本周反复出现的行为模式、思维陷阱或潜在的长期兴趣点)
-            
-            ## 🚀 下周聚焦
-            (基于本周的情况，为下周提出 1-2 个核心关注点或改进建议)
-            """;
-            
-        return aiService.chat(systemPrompt, dailySummaries);
+        return aiService.chat(AiPrompts.WEEKLY_SUMMARY_PROMPT, dailySummaries);
     }
 }

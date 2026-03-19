@@ -1,6 +1,5 @@
 package com.example.wxnotion.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.ConfigStatus;
@@ -41,7 +40,7 @@ public class GuestModeTestController {
         Map<String, Object> result = new HashMap<>();
         
         // 检查是否已存在
-        UserConfig exist = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+        UserConfig exist = userConfigRepository.selectByOpenId(openId);
         if (exist != null) {
             result.put("status", "exists");
             result.put("user", exist);
@@ -52,7 +51,7 @@ public class GuestModeTestController {
         // 由于 SyncService.initGuestUser 是 private 的，我们通过 sync 方法的副作用来触发
         String resp = syncService.sync(openId, "Hello Init");
         
-        UserConfig newUser = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+        UserConfig newUser = userConfigRepository.selectByOpenId(openId);
         result.put("status", "created");
         result.put("syncResponse", resp);
         result.put("user", newUser);
@@ -109,7 +108,7 @@ public class GuestModeTestController {
      */
     @GetMapping("/status")
     public UserConfig getUserStatus(@RequestParam String openId) {
-        return userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+        return userConfigRepository.selectByOpenId(openId);
     }
     
     /**

@@ -1,7 +1,6 @@
 package com.example.wxnotion.controller;
 
 import com.example.wxnotion.config.WxProperties;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
@@ -177,7 +176,7 @@ public class WxOAuthController {
     if (!scope.contains("snsapi_userinfo")) return;
     try {
       WxOAuth2UserInfo info = wxMpService.getOAuth2Service().getUserInfo(token, "zh_CN");
-      UserConfig cfg = userConfigRepository.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+      UserConfig cfg = userConfigRepository.selectByOpenId(openId);
       if (cfg == null) {
         return;
       }

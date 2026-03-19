@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -52,6 +53,129 @@ public class NotionApiFacade {
       }
       JsonNode root = mapper.readTree(resp.body);
       return root.path("id").asText(null);
+    });
+  }
+
+  /**
+   * 创建任务专用 Database（独立于 Notes Database）
+   */
+  public String createTasksDatabase(String token, String parentPageId, String title) {
+    return runWithRetry("createTasksDatabase", () -> {
+      Map<String, Object> payload = new HashMap<>();
+      payload.put("parent", Map.of("type", "page_id", "page_id", parentPageId));
+      payload.put("title", Collections.singletonList(Map.of(
+          "type", "text",
+          "text", Map.of("content", title)
+      )));
+
+      Map<String, Object> properties = new LinkedHashMap<>();
+      properties.put("Name", Map.of("title", Map.of()));
+      properties.put("Type", Map.of("select", Map.of("options", List.of(
+          Map.of("name", "recurring", "color", "blue"),
+          Map.of("name", "one_time", "color", "green")
+      ))));
+      properties.put("Cycle", Map.of("rich_text", Map.of()));
+      properties.put("Trigger", Map.of("rich_text", Map.of()));
+      properties.put("Progress", Map.of("rich_text", Map.of()));
+      properties.put("EndCondition", Map.of("rich_text", Map.of()));
+      properties.put("Status", Map.of("select", Map.of("options", List.of(
+          Map.of("name", "active", "color", "green"),
+          Map.of("name", "completed", "color", "blue"),
+          Map.of("name", "abandoned", "color", "yellow"),
+          Map.of("name", "deleted", "color", "gray")
+      ))));
+      properties.put("CreatedAt", Map.of("date", Map.of()));
+      properties.put("CronExpr", Map.of("rich_text", Map.of()));
+      payload.put("properties", properties);
+
+      String json = mapper.writeValueAsString(payload);
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases",
+          "POST",
+          json,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("createTasksDatabase", resp, "parentPageId=" + parentPageId);
+      }
+      JsonNode root = mapper.readTree(resp.body);
+      return root.path("id").asText(null);
+    });
+  }
+
+  /**
+   * 创建 Notion 页面，payload 为已序列化的 JSON 字符串
+   */
+  public HttpResponse createPage(String token, String payloadJson) {
+    return runWithRetry("createPage", () -> {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/pages",
+          "POST",
+          payloadJson,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("createPage", resp, null);
+      }
+      return resp;
+    });
+  }
+
+  /**
+   * 向 Notion 页面追加 blocks
+   */
+  public void appendBlockChildren(String token, String pageId, List<Map<String, Object>> blocks) {
+    runWithRetry("appendBlockChildren", () -> {
+      Map<String, Object> payload = Map.of("children", blocks);
+      String json = mapper.writeValueAsString(payload);
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/blocks/" + pageId + "/children",
+          "PATCH",
+          json,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("appendBlockChildren", resp, "pageId=" + pageId);
+      }
+      return null;
+    });
+  }
+
+  /**
+   * 更新页面的任意 Properties（PATCH /pages/{pageId}）
+   */
+  public void patchPageProperties(String token, String pageId, Map<String, Object> properties) {
+    runWithRetry("patchPageProperties", () -> {
+      Map<String, Object> payload = Map.of("properties", properties);
+      String json = mapper.writeValueAsString(payload);
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/pages/" + pageId,
+          "PATCH",
+          json,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("patchPageProperties", resp, "pageId=" + pageId);
+      }
+      return null;
+    });
+  }
+
+  /**
+   * 读取页面属性（GET /pages/{pageId}）
+   */
+  public JsonNode getPage(String token, String pageId) {
+    return runWithRetry("getPage", () -> {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/pages/" + pageId,
+          "GET",
+          null,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("getPage", resp, "pageId=" + pageId);
+      }
+      return mapper.readTree(resp.body);
     });
   }
 

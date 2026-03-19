@@ -24,7 +24,7 @@ public class ThemeController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "star_count") String sort,
             @RequestParam(required = false) String q) {
-        return themeService.listThemes(page, size, sort, q);
+        return themeService.listThemes(page, Math.min(size, 100), sort, q);
     }
 
     @GetMapping("/{id}")

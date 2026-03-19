@@ -67,7 +67,7 @@ public class UserConfigController {
    */
   @GetMapping("/by-openid")
   public ResponseEntity<UserConfigView> getByOpenId(@RequestParam String openId) {
-    UserConfig cfg = repo.selectOne(new QueryWrapper<UserConfig>().eq("open_id", openId));
+    UserConfig cfg = repo.selectByOpenId(openId);
     if (cfg == null) return ResponseEntity.notFound().build();
     return ResponseEntity.ok(UserConfigView.from(cfg));
   }
@@ -84,6 +84,9 @@ public class UserConfigController {
     private String nickname;
     private String avatarUrl;
     private boolean dailyCardEnabled;
+    private String aiBaseUrl;
+    private String aiApiKeyMasked;
+    private String aiModel;
 
     public static UserConfigView from(UserConfig cfg) {
       UserConfigView view = new UserConfigView();
@@ -98,7 +101,17 @@ public class UserConfigController {
       view.setAvatarUrl(cfg.getAvatarUrl());
       com.example.wxnotion.model.PromptConfig pc = cfg.getPromptConfig();
       view.setDailyCardEnabled(pc == null || pc.getDailyCardEnabled() == null || pc.getDailyCardEnabled());
+      view.setAiBaseUrl(cfg.getAiBaseUrl());
+      view.setAiModel(cfg.getAiModel());
+      view.setAiApiKeyMasked(maskApiKey(cfg.getAiApiKey()));
       return view;
+    }
+
+    /** 脱敏：保留后4位，其余掩码。未配置返回 null。 */
+    private static String maskApiKey(String encryptedKey) {
+      if (encryptedKey == null || encryptedKey.isBlank()) return null;
+      // 密文本身不暴露，仅告知前端"已配置"并显示占位符
+      return "sk-****...****";
     }
   }
 }

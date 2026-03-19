@@ -38,6 +38,8 @@ docker-compose.override.yml
 *~
 src/main/resources/application.yml
 /frontend/node_modules/
+/image-frontend/node_modules/
+/image-frontend/dist/
 
 # Nginx config (contains server-specific paths, managed separately)
 nginx/

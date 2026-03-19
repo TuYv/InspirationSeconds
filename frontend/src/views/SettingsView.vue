@@ -74,6 +74,41 @@
       </div>
     </section>
 
+    <!-- AI model config -->
+    <section class="panel pref-panel">
+      <div class="panel-title collapsible" @click="aiConfigOpen = !aiConfigOpen">
+        自定义 AI 模型
+        <span class="collapse-icon">{{ aiConfigOpen ? '▲' : '▼' }}</span>
+      </div>
+      <template v-if="aiConfigOpen">
+        <div class="form">
+          <label class="field">
+            <span>Base URL</span>
+            <input v-model.trim="aiBaseUrl" type="text" placeholder="https://api.siliconflow.cn/v1" />
+          </label>
+          <label class="field">
+            <span>API Key</span>
+            <input v-model="aiApiKeyInput" type="password"
+                   :placeholder="aiApiKeyMasked ? aiApiKeyMasked : '留空则使用系统默认'" />
+          </label>
+          <label class="field">
+            <span>Model</span>
+            <input v-model.trim="aiModel" type="text" placeholder="Pro/deepseek-ai/DeepSeek-V3" />
+          </label>
+        </div>
+        <p class="hint">留空所有字段可恢复使用系统默认配置。</p>
+        <div class="actions">
+          <button class="primary" :disabled="aiConfigSaving" @click="saveAiConfig">
+            {{ aiConfigSaving ? '保存中...' : '保存' }}
+          </button>
+          <span v-if="aiConfigSaved" class="save-ok">已保存</span>
+        </div>
+        <div class="actions" style="margin-top: 0;">
+          <button class="ghost" @click="router.push('/token-usage')">查看 Token 用量 →</button>
+        </div>
+      </template>
+    </section>
+
     <!-- Change connection wizard -->
     <section class="panel" ref="wizardSection">
       <div class="panel-title collapsible" @click="wizardOpen = account?.isGuest || !wizardOpen">
@@ -164,6 +199,9 @@ type ConfigView = {
   updatedAt: string | null;
   nickname?: string | null;
   avatarUrl?: string | null;
+  aiBaseUrl?: string | null;
+  aiApiKeyMasked?: string | null;
+  aiModel?: string | null;
 };
 
 const account = ref<ConfigView | null>(null);
@@ -195,6 +233,43 @@ async function copyDbId() {
 const wizardSection = ref<HTMLElement | null>(null);
 const dailyCardEnabled = ref(true);
 const wizardOpen = ref(false);
+
+// ── AI config ─────────────────────────────────────────────────────────
+const aiConfigOpen = ref(false);
+const aiBaseUrl = ref('');
+const aiApiKeyInput = ref('');
+const aiApiKeyMasked = ref<string | null>(null);
+const aiModel = ref('');
+const aiConfigSaving = ref(false);
+const aiConfigSaved = ref(false);
+
+const saveAiConfig = async () => {
+  aiConfigSaving.value = true;
+  aiConfigSaved.value = false;
+  try {
+    const resp = await apiFetch('/api/user/ai-config', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        aiBaseUrl: aiBaseUrl.value || null,
+        aiApiKey: aiApiKeyInput.value || null,
+        aiModel: aiModel.value || null,
+      }),
+    });
+    if (resp.ok) {
+      aiConfigSaved.value = true;
+      aiApiKeyInput.value = '';
+      // reload masked key
+      const me = await apiFetch('/api/user/me');
+      if (me.ok) {
+        const d: ConfigView = await me.json();
+        aiApiKeyMasked.value = d.aiApiKeyMasked ?? null;
+      }
+      setTimeout(() => { aiConfigSaved.value = false; }, 2000);
+    }
+  } finally {
+    aiConfigSaving.value = false;
+  }
+};
 
 function scrollToWizard() {
   wizardSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -277,6 +352,9 @@ onMounted(async () => {
       account.value = data;
       dailyCardEnabled.value = data.dailyCardEnabled ?? true;
       wizardOpen.value = !!data.isGuest;
+      aiBaseUrl.value = data.aiBaseUrl ?? '';
+      aiApiKeyMasked.value = data.aiApiKeyMasked ?? null;
+      aiModel.value = data.aiModel ?? '';
     }
   } finally {
     accountLoading.value = false;
@@ -708,5 +786,11 @@ button.ghost {
   padding: 10px 16px;
   border-radius: 12px;
   font-weight: 600;
+}
+
+.save-ok {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a5c35;
 }
 </style>

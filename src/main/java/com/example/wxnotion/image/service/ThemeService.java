@@ -72,9 +72,17 @@ public class ThemeService {
         }
     }
 
+    private static final int MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024; // 5 MB
+
     private String saveThumbnail(String base64) throws Exception {
+        if (base64.length() > MAX_THUMBNAIL_BYTES * 4 / 3 + 100) {
+            throw new IllegalArgumentException("缩略图超过最大允许大小 5MB");
+        }
         String data = base64.contains(",") ? base64.substring(base64.indexOf(',') + 1) : base64;
         byte[] bytes = Base64.getDecoder().decode(data);
+        if (bytes.length > MAX_THUMBNAIL_BYTES) {
+            throw new IllegalArgumentException("缩略图超过最大允许大小 5MB");
+        }
 
         File dir = new File(thumbnailDir);
         if (!dir.exists()) dir.mkdirs();

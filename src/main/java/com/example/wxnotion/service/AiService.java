@@ -2,6 +2,8 @@ package com.example.wxnotion.service;
 
 import com.example.wxnotion.http.HttpClient;
 import com.example.wxnotion.http.HttpClient.HttpResponse;
+import com.example.wxnotion.model.UserConfig;
+import com.example.wxnotion.util.AesUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -13,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,6 +28,7 @@ import java.util.Map;
 public class AiService {
 
     private final HttpClient httpClient;
+    private final TokenUsageService tokenUsageService;
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Value("${ai.base-url}")
@@ -35,6 +39,9 @@ public class AiService {
 
     @Value("${ai.model}")
     private String model;
+
+    @Value("${security.aesKey}")
+    private String aesKey;
 
     /**
      * 发送聊天请求并获取回复
@@ -96,6 +103,138 @@ public class AiService {
             log.error("AI 调用异常: {}", e.getMessage(), e);
             return "AI 服务连接错误";
         }
+    }
+
+    /**
+     * 用户感知版：优先使用用户自定义配置，未配置则委托系统配置。
+     * 有自有 Key 时解析 usage 并写入 token_usage 表。
+     */
+    public String chat(UserConfig user, String systemPrompt, String userMessage) {
+        if (user == null || user.getAiApiKey() == null || user.getAiApiKey().isBlank()) {
+            return chat(systemPrompt, userMessage);
+        }
+
+        String userApiKey;
+        try {
+            userApiKey = AesUtil.decrypt(aesKey, user.getAiApiKey());
+        } catch (Exception e) {
+            log.warn("解密用户 AI Key 失败，用户: {}, fallback 系统配置", user.getOpenId());
+            return chat(systemPrompt, userMessage);
+        }
+
+        String effectiveBaseUrl = (user.getAiBaseUrl() != null && !user.getAiBaseUrl().isBlank())
+                ? user.getAiBaseUrl() : baseUrl;
+        String effectiveModel = (user.getAiModel() != null && !user.getAiModel().isBlank())
+                ? user.getAiModel() : model;
+
+        try {
+            ObjectNode requestBody = mapper.createObjectNode();
+            requestBody.put("model", effectiveModel);
+            requestBody.put("temperature", 0.7);
+
+            ArrayNode messages = requestBody.putArray("messages");
+            messages.addObject().put("role", "system").put("content", systemPrompt);
+            messages.addObject().put("role", "user").put("content", userMessage);
+
+            String json = mapper.writeValueAsString(requestBody);
+            String endpoint = effectiveBaseUrl.endsWith("/")
+                    ? effectiveBaseUrl + "chat/completions"
+                    : effectiveBaseUrl + "/chat/completions";
+
+            Map<String, String> headers = new HashMap<>();
+            headers.put("Authorization", "Bearer " + userApiKey);
+            headers.put("Content-Type", "application/json");
+
+            HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(endpoint, "POST", json, headers));
+
+            if (!resp.isSuccessful) {
+                log.error("用户 AI 请求失败: Code={}, Body={}, 用户: {}", resp.code, resp.body, user.getOpenId());
+                return "AI 服务暂时不可用 (Code " + resp.code + ")";
+            }
+
+            JsonNode root = mapper.readTree(resp.body);
+
+            // 记录 token 用量
+            JsonNode usage = root.path("usage");
+            if (!usage.isMissingNode()) {
+                tokenUsageService.record(
+                        user.getOpenId(),
+                        usage.path("prompt_tokens").asInt(0),
+                        usage.path("completion_tokens").asInt(0),
+                        usage.path("total_tokens").asInt(0));
+            }
+
+            JsonNode choices = root.path("choices");
+            if (choices.isArray() && !choices.isEmpty()) {
+                return choices.get(0).path("message").path("content").asText();
+            }
+            return "AI 未返回有效内容";
+
+        } catch (IOException e) {
+            log.error("用户 AI 调用异常，用户: {}: {}", user.getOpenId(), e.getMessage(), e);
+            return "AI 服务连接错误";
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 类型化调用：自动完成 JSON 清洗 + 反序列化
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * 使用系统配置调用 AI，将 JSON 响应直接反序列化为目标类型。
+     *
+     * @param systemPrompt 系统提示词
+     * @param userMessage  用户消息
+     * @param responseType 期望的响应类型
+     * @throws IOException 响应不合法 JSON 或无法映射时抛出
+     */
+    public <T> T chatForObject(String systemPrompt, String userMessage, Class<T> responseType) throws IOException {
+        String raw = chat(systemPrompt, userMessage);
+        return mapper.readValue(cleanJsonResponse(raw), responseType);
+    }
+
+    /**
+     * 用户感知版：优先使用用户自定义配置，将 JSON 响应反序列化为目标类型。
+     *
+     * @param user         用户配置（为 null 或无自定义 Key 时退回系统配置）
+     * @param systemPrompt 系统提示词
+     * @param userMessage  用户消息
+     * @param responseType 期望的响应类型
+     * @throws IOException 响应不合法 JSON 或无法映射时抛出
+     */
+    public <T> T chatForObject(UserConfig user, String systemPrompt, String userMessage, Class<T> responseType) throws IOException {
+        String raw = chat(user, systemPrompt, userMessage);
+        return mapper.readValue(cleanJsonResponse(raw), responseType);
+    }
+
+    /**
+     * 用户感知版：AI 响应为 JSON 数组时使用此方法。
+     *
+     * @param user        用户配置
+     * @param systemPrompt 系统提示词
+     * @param userMessage 用户消息
+     * @param elementType 数组元素的类型
+     * @throws IOException 响应不合法 JSON 或无法映射时抛出
+     */
+    public <T> List<T> chatForList(UserConfig user, String systemPrompt, String userMessage, Class<T> elementType) throws IOException {
+        String raw = chat(user, systemPrompt, userMessage);
+        return mapper.readValue(cleanJsonResponse(raw),
+                mapper.getTypeFactory().constructCollectionType(List.class, elementType));
+    }
+
+    /**
+     * 清洗 AI 响应中可能携带的 Markdown 代码块标记（{@code ```json ... ```}）。
+     * 各服务在解析 JSON 前应统一调用此方法，而非各自重复实现清洗逻辑。
+     *
+     * @param raw AI 原始响应文本
+     * @return 去除代码块标记后的纯 JSON 字符串
+     */
+    public static String cleanJsonResponse(String raw) {
+        if (raw == null) return "{}";
+        return raw.replaceAll("(?s)^```json\\s*", "")
+                  .replaceAll("(?s)^```\\w*\\s*", "")
+                  .replaceAll("(?s)\\s*```$", "")
+                  .trim();
     }
 
     private Map<String, String> buildHeaders() {

@@ -1,16 +1,13 @@
 package com.example.wxnotion.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
-import com.example.wxnotion.model.ConfigStatus;
+import com.example.wxnotion.model.DailySummaryResult;
 import com.example.wxnotion.model.UserConfig;
 import com.example.wxnotion.util.AesUtil;
 import com.example.wxnotion.util.BlockContentParser;
 import com.example.wxnotion.util.ImageGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,8 +33,6 @@ public class DailySummaryService {
     private final PromptManager promptManager;
     private final NotionProperties notionProperties;
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
     @Value("${security.aesKey}")
     private String aesKey;
 
@@ -49,7 +44,7 @@ public class DailySummaryService {
     @Scheduled(cron = "0 0 8 * * ?")
     public void generateDailySummaries() {
         log.info("开始执行每日 AI 总结任务...");
-        List<UserConfig> users = userConfigRepository.selectList(new QueryWrapper<UserConfig>().eq("status", ConfigStatus.ACTIVE));
+        List<UserConfig> users = userConfigRepository.selectActiveUsers();
 
         // 1. 生成日报
         for (UserConfig user : users) {
@@ -88,26 +83,6 @@ public class DailySummaryService {
         }
     }
 
-    // 内部类用于承载 AI 解析结果
-    private static class AiDailySummary {
-        public String yesterday_summary;
-        public String emotion_weather;
-        public String subconscious_link;
-        public String today_quote;
-        public String keywords;
-        
-        // 转换为 Markdown 格式用于写入 Notion
-        public String toMarkdown() {
-            StringBuilder sb = new StringBuilder();
-            if (yesterday_summary != null) sb.append("📝 昨日回响\n").append(yesterday_summary).append("\n\n");
-            if (emotion_weather != null) sb.append("🎭 情绪气象台\n").append(emotion_weather).append("\n\n");
-            if (subconscious_link != null) sb.append("💡 潜意识连接\n").append(subconscious_link).append("\n\n");
-            if (today_quote != null) sb.append("🔮 今日启示\n").append(today_quote).append("\n\n");
-            if (keywords != null) sb.append("🏷️ 关键词\n").append(keywords);
-            return sb.toString();
-        }
-    }
-
     private String processUserSummary(UserConfig userConfig, LocalDate targetDate) {
         String apiKey;
         if (userConfig.getIsGuest()) {
@@ -137,9 +112,7 @@ public class DailySummaryService {
         }
 
         // 3. AI 分析 (返回 JSON)
-        String jsonResult = callAiToAnalyze(userConfig, rawContent);
-        AiDailySummary summaryObj = parseAiResponse(jsonResult);
-        
+        DailySummaryResult summaryObj = callAiToAnalyze(userConfig, rawContent);
         if (summaryObj == null) {
             return "AI 分析失败";
         }
@@ -171,29 +144,11 @@ public class DailySummaryService {
     }
     
     /**
-     * 解析 AI 返回的 JSON
-     */
-    private AiDailySummary parseAiResponse(String json) {
-        try {
-            // 清理可能的 Markdown 代码块标记 (```json ... ```)
-            String cleanJson = json.replaceAll("(?s)^```json\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
-            // 有时候 AI 可能会在 ```json 后换行，或者不加 json，只加 ```
-            if (cleanJson.startsWith("```")) {
-                 cleanJson = cleanJson.replaceAll("(?s)^```\\w*\\s*", "").replaceAll("(?s)\\s*```$", "").trim();
-            }
-            return mapper.readValue(cleanJson, AiDailySummary.class);
-        } catch (JsonProcessingException e) {
-            log.error("AI 响应 JSON 解析失败: raw={}", json, e);
-            return null;
-        }
-    }
-
-    /**
      * 生成并推送日签图片 (基于结构化数据)
      */
-    private void pushDailyCard(String openId, AiDailySummary summary) {
-        String yesterdaySummary = summary.yesterday_summary != null ? summary.yesterday_summary : "昨日平淡而充实，为今天积蓄力量。";
-        String quote = summary.today_quote != null ? summary.today_quote : "每一天都是新的开始。";
+    private void pushDailyCard(String openId, DailySummaryResult summary) {
+        String yesterdaySummary = summary.yesterdaySummary != null ? summary.yesterdaySummary : "昨日平淡而充实，为今天积蓄力量。";
+        String quote = summary.todayQuote != null ? summary.todayQuote : "每一天都是新的开始。";
         String keywords = summary.keywords != null ? summary.keywords : "#每日回响 #InspirationSeconds";
         
         File image = null;
@@ -217,10 +172,9 @@ public class DailySummaryService {
     }
     
     /**
-     * 调用 AI 进行分析 (强制 JSON)
-     * 集成了动态 Prompt 优化机制
+     * 调用 AI 进行分析，集成动态 Prompt 优化机制，返回结构化结果。
      */
-    private String callAiToAnalyze(UserConfig userConfig, String userNotes) {
+    private DailySummaryResult callAiToAnalyze(UserConfig userConfig, String userNotes) {
         // 1. 尝试优化 Prompt (预检查 + 优化)
         try {
             boolean optimized = promptOptimizationService.optimizePromptIfNecessary(userConfig, userNotes);
@@ -233,8 +187,13 @@ public class DailySummaryService {
 
         // 2. 组装最终的 System Prompt
         String systemPrompt = promptManager.assembleSystemPrompt(userConfig);
-            
-        // 3. 调用 AI
-        return aiService.chat(systemPrompt, userNotes);
+
+        // 3. 调用 AI 并反序列化为结构化对象
+        try {
+            return aiService.chatForObject(systemPrompt, userNotes, DailySummaryResult.class);
+        } catch (Exception e) {
+            log.error("日报 AI 响应解析失败，用户: {}", userConfig.getOpenId(), e);
+            return null;
+        }
     }
 }

@@ -26,6 +26,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/NotionView.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/token-usage',
+    component: () => import('../views/TokenUsageView.vue'),
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

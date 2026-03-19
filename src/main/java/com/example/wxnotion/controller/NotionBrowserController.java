@@ -1,6 +1,5 @@
 package com.example.wxnotion.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.wxnotion.config.NotionProperties;
 import com.example.wxnotion.mapper.UserConfigRepository;
 import com.example.wxnotion.model.UserConfig;
@@ -54,7 +53,12 @@ public class NotionBrowserController {
 
         List<PageEntry> pages = new ArrayList<>();
         String cursor = null;
+        int pageLimit = 0;
         do {
+            if (++pageLimit > 50) {
+                log.warn("Notion 查询超过 50 页，强制中止，databaseId={}", databaseId);
+                break;
+            }
             NotionService.QueryResult result = notionService.queryDatabase(apiKey, databaseId, cursor);
             if (result == null) break;
 
@@ -134,8 +138,7 @@ public class NotionBrowserController {
     }
 
     private UserConfig getConfig(String openId) {
-        return userConfigRepository.selectOne(
-                new QueryWrapper<UserConfig>().eq("open_id", openId));
+        return userConfigRepository.selectByOpenId(openId);
     }
 
     private String resolveApiKey(UserConfig cfg) {
