@@ -238,3 +238,28 @@ hr { border: none; border-top: 1px solid #e2e8f0; margin: 1.5em 0; }',
 
 **关键词**：成长 · 感悟 · 前行',
 '内置', 0, 1);
+
+INSERT INTO themes (name, description, css, preview_md, author_name, star_count, is_builtin) VALUES
+('小红书', '大字加粗、石灰绿高亮，模拟小红书封面图风格，用 ==文字== 语法添加荧光高亮',
+'.preview-wrap { background: #ffffff; color: #1a1a1a; font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif; font-size: 30px; font-weight: 700; line-height: 1.55; padding: 56px 40px 44px; box-sizing: border-box; border-radius: 20px; position: relative; }
+.preview-wrap::before { content: "\25A1"; position: absolute; top: 20px; left: 24px; font-size: 14px; color: #bbbbbb; font-weight: 300; line-height: 1; }
+.preview-wrap::after { content: "\25B3\00A0\25A1"; position: absolute; top: 20px; right: 24px; font-size: 11px; color: #bbbbbb; font-weight: 300; line-height: 1; letter-spacing: 2px; }
+p { margin: 0.55em 0; }
+h1 { font-size: 1.05em; font-weight: 700; margin: 0 0 0.3em; color: #1a1a1a; border: none; padding: 0; }
+h2 { font-size: 1em; font-weight: 700; margin: 0.5em 0 0.25em; color: #1a1a1a; border: none; padding: 0; }
+h3 { font-size: 1em; font-weight: 600; margin: 0.4em 0; color: #1a1a1a; }
+strong { font-weight: 900; color: #1a1a1a; }
+em { font-style: italic; color: #1a1a1a; }
+mark { background: #b8f43c; color: #1a1a1a; padding: 0 4px; border-radius: 4px; font-weight: 700; font-style: normal; }
+ul, ol { padding-left: 1.2em; margin: 0.4em 0; }
+li { margin: 0.2em 0; }
+blockquote { border: none; padding: 0; margin: 0.5em 0; color: #1a1a1a; background: none; font-style: normal; }
+hr { border: none; border-top: 1px solid #eeeeee; margin: 0.8em 0; }',
+'哈哈哈哈，😂😂😂😂😂
+这绝对是本年度最佳笑话前五：
+
+==Claude==额度用完了
+可以去用==亚马逊==的客服
+
+一定要点进来看到完',
+'内置', 8, 1);

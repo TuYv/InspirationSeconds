@@ -11,6 +11,8 @@
 <script setup lang="ts">
 import { computed, watch, onUnmounted } from 'vue'
 import MarkdownIt from 'markdown-it'
+// @ts-ignore — no bundled types for markdown-it-mark
+import markdownItMark from 'markdown-it-mark'
 import { scopeCss } from '../utils/cssScope'
 
 const props = defineProps<{
@@ -20,7 +22,7 @@ const props = defineProps<{
   aspectRatio?: string // e.g. '1:1', '4:5', '16:9', '9:16'
 }>()
 
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true }).use(markdownItMark)
 
 const renderedHtml = computed(() => md.render(props.markdown || ''))
 
