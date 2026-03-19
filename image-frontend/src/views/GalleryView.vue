@@ -42,9 +42,7 @@
       <div v-for="theme in themes" :key="theme.id" class="card">
         <div class="card-thumb">
           <img v-if="theme.thumbnailUrl" :src="theme.thumbnailUrl" :alt="theme.name" loading="lazy" />
-          <div v-else class="no-thumb" :style="{ background: getThemeGradient(theme.name) }">
-            <span class="no-thumb-letter">{{ theme.name[0] }}</span>
-          </div>
+          <ThemeCardPreview v-else :css="theme.css" :preview-md="theme.previewMd" />
         </div>
         <div class="card-body">
           <div class="card-name">{{ theme.name }}</div>
@@ -86,6 +84,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { listThemes, starTheme, type Theme } from '../api/themes'
 import { saveActiveTheme, isStarred as checkStarred, markStarred } from '../utils/storage'
+import ThemeCardPreview from '../components/ThemeCardPreview.vue'
 
 const router = useRouter()
 const themes = ref<Theme[]>([])
