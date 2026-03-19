@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.example.wxnotion.model.ConversationEntry;
+
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -68,9 +68,7 @@ public class TaskNotionServiceTest {
     @Test
     void appendConversationHistory_callsAppend() {
         UserConfig user = makeGuestUser();
-        List<Map<String, String>> log = List.of(
-                Map.of("role", "user", "content", "hello", "timestamp", "03-18 10:00")
-        );
+        List<ConversationEntry> log = List.of(ConversationEntry.of("user", "hello"));
         service.appendConversationHistory(user, "page-id", log);
         verify(facade).appendBlockChildren(eq("admin-token"), eq("page-id"), any());
     }

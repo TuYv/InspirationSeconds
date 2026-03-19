@@ -162,6 +162,32 @@ public class NotionApiFacade {
   }
 
   /**
+   * 获取 Database 的父页面 ID（GET /databases/{databaseId}，取 parent.page_id）
+   * 用于在同级创建 Tasks Database
+   */
+  public String getDatabaseParentPageId(String token, String databaseId) {
+    return runWithRetry("getDatabaseParentPageId", () -> {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId,
+          "GET",
+          null,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("getDatabaseParentPageId", resp, "databaseId=" + databaseId);
+      }
+      JsonNode root = mapper.readTree(resp.body);
+      JsonNode parent = root.path("parent");
+      String pageId = parent.path("page_id").asText(null);
+      if (pageId == null) {
+        throw new NotionApiException("invalid_parent", 400,
+            "Database parent is not a page: " + parent.path("type").asText(), "databaseId=" + databaseId);
+      }
+      return pageId;
+    });
+  }
+
+  /**
    * 读取页面属性（GET /pages/{pageId}）
    */
   public JsonNode getPage(String token, String pageId) {
