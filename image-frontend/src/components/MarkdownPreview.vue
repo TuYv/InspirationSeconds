@@ -5,12 +5,11 @@
       class="preview-wrap"
       v-html="renderedHtml"
     />
-    <style v-if="scopedCss">{{ scopedCss }}</style>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch, onUnmounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { scopeCss } from '../utils/cssScope'
 
@@ -25,8 +24,6 @@ const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 const renderedHtml = computed(() => md.render(props.markdown || ''))
 
-const scopedCss = computed(() => scopeCss(props.css || ''))
-
 const outerStyle = computed(() => {
   const w = props.width ?? 600
   if (!props.aspectRatio || props.aspectRatio === 'auto') {
@@ -35,6 +32,29 @@ const outerStyle = computed(() => {
   const [wr, hr] = props.aspectRatio.split(':').map(Number)
   const h = Math.round((w * hr) / wr)
   return { width: w + 'px', height: h + 'px', overflow: 'hidden' }
+})
+
+// Inject theme CSS into <head> for reliable dynamic style application.
+// Vue template <style>{{ css }}</style> is unreliable — browsers may not process
+// style elements injected into the body via Vue's template compiler.
+let styleEl: HTMLStyleElement | null = null
+
+watch(
+  () => props.css,
+  (css) => {
+    if (!styleEl) {
+      styleEl = document.createElement('style')
+      styleEl.setAttribute('data-preview-theme', '')
+      document.head.appendChild(styleEl)
+    }
+    styleEl.textContent = scopeCss(css || '')
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => {
+  styleEl?.remove()
+  styleEl = null
 })
 </script>
 
