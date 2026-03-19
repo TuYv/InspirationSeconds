@@ -50,6 +50,9 @@
       <div class="topbar-sep"></div>
 
       <div class="topbar-right">
+        <button class="btn-secondary btn-theme-toggle" :title="isDark ? '切换到白天模式' : '切换到夜间模式'" @click="toggle">
+          <span class="btn-icon">{{ isDark ? '☀' : '🌙' }}</span>
+        </button>
         <button class="btn-secondary btn-copy" :disabled="exporting" @click="copyImage">
           <span class="btn-icon">⊞</span>
           {{ copied ? '已复制 ✓' : '复制' }}
@@ -96,6 +99,9 @@ import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { exportAsPng, copyToClipboard, supportsClipboardImage } from '../utils/exportImage'
 import { loadActiveTheme, saveActiveTheme } from '../utils/storage'
+import { useColorScheme } from '../composables/useColorScheme'
+
+const { isDark, toggle } = useColorScheme()
 
 // ── builtin themes (css is loaded from the seed, here we use the same CSS inline)
 const builtinThemes = [
@@ -312,6 +318,15 @@ async function copyImage() {
 }
 
 /* ── Export buttons ── */
+.btn-theme-toggle {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-copy, .btn-export {
   height: 32px;
   padding: 0 13px;

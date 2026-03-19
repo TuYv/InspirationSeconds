@@ -29,6 +29,23 @@
   font-feature-settings: "kern" 1, "liga" 1;
 }
 
+:root[data-theme="light"] {
+  --bg: #fafaf8;
+  --surface: #f0f0ec;
+  --surface2: #e8e8e4;
+  --surface3: #e0e0db;
+  --border: #d8d8d0;
+  --border-light: #e4e4dc;
+  --text: #2a2a3a;
+  --text-muted: #6a6a7a;
+  --text-subtle: #a0a0b0;
+  --accent: #6b5ce7;
+  --accent-hover: #7b6cf7;
+  --accent-dim: rgba(107, 92, 231, 0.1);
+  --accent-glow: rgba(107, 92, 231, 0.2);
+  --amber-dim: rgba(224, 168, 74, 0.12);
+}
+
 body {
   background: var(--bg);
   color: var(--text);
