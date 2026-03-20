@@ -20,13 +20,13 @@
             </optgroup>
             <option v-if="customTheme" :value="customTheme.name">{{ customTheme.name }} ✦</option>
           </select>
-          <router-link to="/themes" class="btn-secondary gallery-btn" style="text-decoration:none">浏览画廊</router-link>
+          <router-link to="/themes" class="btn-secondary gallery-btn hide-mobile" style="text-decoration:none">浏览画廊</router-link>
         </div>
 
-        <div class="topbar-sep-sm"></div>
+        <div class="topbar-sep-sm hide-mobile"></div>
 
         <!-- Canvas size -->
-        <div class="ctrl-group">
+        <div class="ctrl-group hide-mobile">
           <label class="ctrl-label">比例</label>
           <select v-model="aspectRatio" class="ctrl-select ctrl-select-sm">
             <option value="auto">自适应</option>
@@ -50,10 +50,44 @@
       <div class="topbar-sep"></div>
 
       <div class="topbar-right">
+        <!-- ⚙ settings button — mobile only -->
+        <div class="settings-wrapper show-mobile">
+          <button class="btn-secondary btn-settings" @click.stop="showSettings = !showSettings" title="设置">
+            ⚙
+          </button>
+          <div v-if="showSettings" class="settings-dropdown" @click.stop>
+            <div class="settings-item">
+              <label class="ctrl-label">比例</label>
+              <select v-model="aspectRatio" class="ctrl-select ctrl-select-sm">
+                <option value="auto">自适应</option>
+                <option value="1:1">1:1</option>
+                <option value="4:5">4:5</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+              </select>
+            </div>
+            <div class="settings-item">
+              <label class="ctrl-label">宽度</label>
+              <input
+                v-model.number="canvasWidth"
+                type="number"
+                min="300"
+                max="1600"
+                step="50"
+                class="ctrl-input-width"
+                placeholder="宽度 px"
+              />
+            </div>
+            <div class="settings-item">
+              <router-link to="/themes" class="btn-secondary gallery-btn" style="text-decoration:none" @click="showSettings = false">浏览画廊</router-link>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-secondary btn-theme-toggle" :title="isDark ? '切换到白天模式' : '切换到夜间模式'" @click="toggle">
           <span class="btn-icon">{{ isDark ? '☀' : '🌙' }}</span>
         </button>
-        <button class="btn-secondary btn-copy" :disabled="exporting" @click="copyImage">
+        <button class="btn-secondary btn-copy hide-mobile" :disabled="exporting" @click="copyImage">
           <span class="btn-icon">⊞</span>
           {{ copied ? '已复制 ✓' : '复制' }}
         </button>
@@ -65,15 +99,21 @@
     </header>
 
     <!-- Main split pane -->
-    <div class="split-pane">
-      <div class="pane pane-editor">
+    <div class="split-pane" :class="{ dragging: isDragging }">
+      <div class="pane pane-editor" :class="{ 'mobile-hidden': isMobile && mobileView === 'preview' }" :style="isMobile ? {} : { width: leftPct + '%' }">
         <div class="pane-label">
           <span class="pane-label-dot pane-label-dot-edit"></span>
           Markdown
         </div>
-        <MarkdownEditor v-model="markdownText" />
+        <div class="editor-body">
+          <MarkdownEditor v-model="markdownText" :is-dark="isDark" />
+        </div>
       </div>
-      <div class="pane pane-preview">
+
+      <!-- Drag divider — desktop only -->
+      <div class="pane-divider" @mousedown="startDrag"></div>
+
+      <div class="pane pane-preview" ref="previewContainerRef" :class="{ 'mobile-hidden': isMobile && mobileView === 'edit' }">
         <div class="pane-label pane-label-right">
           <span class="pane-label-dot pane-label-dot-preview"></span>
           预览
@@ -90,11 +130,16 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating toggle button — mobile only -->
+    <button class="fab-toggle show-mobile" @click="mobileView = mobileView === 'edit' ? 'preview' : 'edit'" :title="mobileView === 'edit' ? '查看预览' : '返回编辑'">
+      {{ mobileView === 'edit' ? '👁' : '✏' }}
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import MarkdownEditor from '../components/MarkdownEditor.vue'
 import MarkdownPreview from '../components/MarkdownPreview.vue'
 import { exportAsPng, copyToClipboard, supportsClipboardImage } from '../utils/exportImage'
@@ -139,8 +184,55 @@ const aspectRatio = ref('auto')
 const exporting = ref(false)
 const copied = ref(false)
 const previewRef = ref<InstanceType<typeof MarkdownPreview>>()
+const previewContainerRef = ref<HTMLElement>()
 const activeThemeName = ref('简约白')
 const customTheme = ref<{ name: string; css: string } | null>(null)
+
+// ── Split pane drag
+const leftPct = ref(45)
+const isDragging = ref(false)
+
+function startDrag(e: MouseEvent) {
+  isDragging.value = true
+  const startX = e.clientX
+  const startPct = leftPct.value
+  const pane = (e.target as HTMLElement).closest('.split-pane') as HTMLElement
+
+  function onMove(ev: MouseEvent) {
+    if (!pane) return
+    const totalWidth = pane.clientWidth
+    const delta = ev.clientX - startX
+    const newPct = startPct + (delta / totalWidth) * 100
+    leftPct.value = Math.min(80, Math.max(20, newPct))
+  }
+
+  function onUp() {
+    isDragging.value = false
+    document.removeEventListener('mousemove', onMove)
+    document.removeEventListener('mouseup', onUp)
+  }
+
+  document.addEventListener('mousemove', onMove)
+  document.addEventListener('mouseup', onUp)
+}
+
+// ── Mobile
+const isMobile = ref(false)
+const mobileView = ref<'edit' | 'preview'>('edit')
+
+function checkMobile() {
+  isMobile.value = window.innerWidth <= 768
+}
+
+// ── Settings dropdown
+const showSettings = ref(false)
+
+function onDocumentClick() {
+  showSettings.value = false
+}
+
+// ── ResizeObserver for canvasWidth on mobile
+let resizeObserver: ResizeObserver | null = null
 
 const activeCss = computed(() => {
   if (customTheme.value && activeThemeName.value === customTheme.value.name) {
@@ -167,6 +259,27 @@ onMounted(() => {
       activeThemeName.value = saved.name
     }
   }
+
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+
+  document.addEventListener('click', onDocumentClick)
+
+  resizeObserver = new ResizeObserver(() => {
+    if (isMobile.value && previewContainerRef.value) {
+      canvasWidth.value = previewContainerRef.value.clientWidth
+    }
+  })
+  if (previewContainerRef.value) {
+    resizeObserver.observe(previewContainerRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', checkMobile)
+  document.removeEventListener('click', onDocumentClick)
+  resizeObserver?.disconnect()
+  resizeObserver = null
 })
 
 async function downloadImage() {
@@ -341,6 +454,43 @@ async function copyImage() {
   opacity: 0.8;
 }
 
+/* ── Settings dropdown ── */
+.settings-wrapper {
+  position: relative;
+}
+
+.btn-settings {
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  z-index: 100;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* ── Split pane ── */
 .split-pane {
   flex: 1;
@@ -348,8 +498,12 @@ async function copyImage() {
   overflow: hidden;
 }
 
+.split-pane.dragging {
+  user-select: none;
+  cursor: col-resize;
+}
+
 .pane {
-  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -357,6 +511,39 @@ async function copyImage() {
 
 .pane-editor {
   border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.editor-body {
+  flex: 1;
+  padding: 12px;
+  overflow: hidden;
+  background: var(--surface2);
+  display: flex;
+  flex-direction: column;
+}
+
+.pane-preview {
+  flex: 1;
+}
+
+.mobile-hidden {
+  display: none;
+}
+
+/* ── Drag divider ── */
+.pane-divider {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border);
+  transition: background 0.15s;
+  position: relative;
+  z-index: 1;
+}
+
+.pane-divider:hover {
+  background: var(--accent);
 }
 
 /* ── Pane labels ── */
@@ -420,5 +607,59 @@ async function copyImage() {
   padding: 28px;
   background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
   background-size: 24px 24px;
+}
+
+/* ── Floating toggle button ── */
+.fab-toggle {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  border: none;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  z-index: 50;
+}
+
+/* ── Mobile responsive ── */
+.hide-mobile { display: flex; }
+.show-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: flex !important; }
+
+  .split-pane {
+    flex-direction: column;
+  }
+
+  .pane-editor {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex: 1;
+  }
+
+  .pane-preview {
+    width: 100% !important;
+    flex: 1;
+  }
+
+  .pane-divider {
+    display: none;
+  }
+
+  .fab-toggle {
+    display: flex;
+  }
 }
 </style>

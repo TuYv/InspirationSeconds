@@ -61,8 +61,8 @@ public class WechatService {
                     .toUser(openId)
                     .templateId(taskTemplateId)
                     .data(java.util.List.of(
-                            new WxMpTemplateData("task_name", taskName),
-                            new WxMpTemplateData("remind_content", remindContent),
+                            new WxMpTemplateData("taskName", taskName),
+                            new WxMpTemplateData("remindContent", remindContent),
                             new WxMpTemplateData("progress", progress != null ? progress : "暂无记录")
                     ))
                     .build();
