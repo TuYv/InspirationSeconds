@@ -5,9 +5,6 @@ import me.chanjar.weixin.common.api.WxConsts;
 import me.chanjar.weixin.common.bean.result.WxMediaUploadResult;
 import me.chanjar.weixin.mp.api.WxMpService;
 import me.chanjar.weixin.mp.bean.kefu.WxMpKefuMessage;
-import me.chanjar.weixin.mp.bean.template.WxMpTemplateData;
-import me.chanjar.weixin.mp.bean.template.WxMpTemplateMessage;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -25,9 +22,6 @@ public class WechatService {
 
     private final WxMpService wxMpService;
 
-    @Value("${wx.taskTemplateId:}")
-    private String taskTemplateId;
-
     /**
      * 推送消息给用户（使用客服消息接口）
      */
@@ -40,36 +34,11 @@ public class WechatService {
                     .build();
             wxMpService.getKefuService().sendKefuMessage(kefuMsg);
 
-            log.info("消息已推送给用户: {}, 内容: {}", openId, content);
+            log.info("消息已推送给用户: {}, 内容摘要: {}...", openId,
+                    content.length() > 20 ? content.substring(0, 20) : content);
 
         } catch (Exception e) {
             log.error("推送消息给用户失败: {}", e.getMessage(), e);
-        }
-    }
-
-    /**
-     * 推送任务提醒模板消息（绕过48小时客服消息限制）。
-     * 未配置 WX_TASK_TEMPLATE_ID 时静默降级，仅记录日志。
-     */
-    public void pushTemplateMessage(String openId, String taskName, String remindContent, String progress) {
-        if (taskTemplateId == null || taskTemplateId.isBlank()) {
-            log.warn("WX_TASK_TEMPLATE_ID 未配置，跳过模板消息推送，用户: {}, 任务: {}", openId, taskName);
-            return;
-        }
-        try {
-            WxMpTemplateMessage msg = WxMpTemplateMessage.builder()
-                    .toUser(openId)
-                    .templateId(taskTemplateId)
-                    .data(java.util.List.of(
-                            new WxMpTemplateData("taskName", taskName),
-                            new WxMpTemplateData("remindContent", remindContent),
-                            new WxMpTemplateData("progress", progress != null ? progress : "暂无记录")
-                    ))
-                    .build();
-            wxMpService.getTemplateMsgService().sendTemplateMsg(msg);
-            log.info("模板消息已推送，用户: {}, 任务: {}", openId, taskName);
-        } catch (Exception e) {
-            log.error("推送模板消息失败，用户: {}, 任务: {}: {}", openId, taskName, e.getMessage());
         }
     }
 
@@ -78,7 +47,12 @@ public class WechatService {
      */
     public String getUserAvatarUrl(String openId) {
         try {
-            return wxMpService.getUserService().userInfo(openId).getHeadImgUrl();
+            var userInfo = wxMpService.getUserService().userInfo(openId);
+            if (userInfo == null) {
+                log.warn("获取用户头像失败: userInfo 为 null，openId: {}", openId);
+                return null;
+            }
+            return userInfo.getHeadImgUrl();
         } catch (Exception e) {
             log.warn("获取用户头像失败: {}", e.getMessage());
             return null;

@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * 任务巡检服务。每天 10:00 和 22:00 扫描所有 active 任务，
- * AI 动态判断哪些需要提醒，推送模板消息。
+ * AI 动态判断哪些需要提醒，推送客服消息。
  */
 @Slf4j
 @Service
@@ -50,10 +50,10 @@ public class TaskPatrolService {
             int count = 0;
             for (TaskPatrolItem item : items) {
                 try {
-                    wechatService.pushTemplateMessage(user.getOpenId(),
-                            item.taskName != null ? item.taskName : "任务",
-                            item.remindMessage != null ? item.remindMessage : "该更新进度了！",
-                            item.progress != null ? item.progress : "");
+                    String content = item.remindMessage != null && !item.remindMessage.isBlank()
+                            ? item.remindMessage
+                            : "[" + (item.taskName != null ? item.taskName : "任务") + "] 该更新进度了~";
+                    wechatService.pushMessageToUser(user.getOpenId(), content);
                     count++;
                 } catch (Exception e) {
                     log.error("巡检推送失败，用户: {}, 任务: {}: {}", user.getOpenId(), item.taskName, e.getMessage());
@@ -61,7 +61,7 @@ public class TaskPatrolService {
             }
             return count;
         } catch (Exception e) {
-            log.warn("巡检 AI 响应解析失败，用户: {}: {}", user.getOpenId(), e.getMessage());
+            log.error("巡检 AI 响应解析失败，用户: {}: {}", user.getOpenId(), e.getMessage());
             return 0;
         }
     }
