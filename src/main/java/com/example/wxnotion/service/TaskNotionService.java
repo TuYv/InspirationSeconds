@@ -48,7 +48,15 @@ public class TaskNotionService {
      */
     public String ensureTasksDatabase(UserConfig userConfig) {
         if (userConfig.getTasksDatabaseId() != null && !userConfig.getTasksDatabaseId().isBlank()) {
-            return userConfig.getTasksDatabaseId();
+            // 已有数据库 ID，检查属性是否完整（修复历史上属性未创建的情况）
+            String token = resolveToken(userConfig);
+            String dbId = userConfig.getTasksDatabaseId();
+            Set<String> existing = notionApiFacade.getDatabasePropertyNames(token, dbId);
+            if (!existing.contains("Status") || !existing.contains("CronExpr")) {
+                log.warn("Tasks Database {} 属性不完整（{}），尝试补全", dbId, existing);
+                notionApiFacade.patchTasksDatabaseSchema(token, dbId);
+            }
+            return dbId;
         }
 
         String token = resolveToken(userConfig);
@@ -130,6 +138,16 @@ public class TaskNotionService {
         // CreatedAt
         String today = LocalDate.now(ZoneId.of("Asia/Shanghai")).toString();
         props.put("CreatedAt", Map.of("date", Map.of("start", today)));
+
+        // 验证数据库实际存在的属性，过滤掉不存在的（防止数据库刚创建时属性未生效）
+        Set<String> actualProps = notionApiFacade.getDatabasePropertyNames(token, dbId);
+        if (!actualProps.isEmpty()) {
+            props.entrySet().removeIf(e -> !actualProps.contains(e.getKey()));
+            if (props.size() <= 1) {
+                // 只剩 Name，说明数据库属性未创建成功，记录告警
+                log.warn("Tasks Database {} 属性可能未创建成功，实际属性: {}", dbId, actualProps);
+            }
+        }
 
         // 调用 Notion API 创建页面
         Map<String, Object> payload = new LinkedHashMap<>();

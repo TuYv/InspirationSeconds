@@ -83,9 +83,17 @@ public final class AiPrompts {
             - recurring：有明确重复频率（每天、每周、每月等）
             - one_time：有明确目标或截止，执行一次即可
 
-            【必须提取的字段】
-            - recurring 任务：name（任务名）、cycle（周期描述，如"每天"）
-            - one_time 任务：name（任务名）、trigger（触发条件/背景）、current_progress（当前进度）、end_condition（结束条件）
+            【字段提取规则】
+            - recurring 任务：必须提取 name（任务名）、cycle（周期描述，如"每天"）
+            - one_time 任务：必须提取 name（任务名）。其他字段均为可选：
+              - trigger：从消息中直接提取时间/背景，无需追问
+              - current_progress：仅对有阶段性进展的长期项目才追问，简单提醒不需要
+              - end_condition：仅对复杂项目型任务才追问，简单提醒不需要
+
+            【关键原则】
+            - 能从消息中提取的字段直接提取，不要列入 missing_fields
+            - 对于时间提醒类任务（"X分钟后"、"明天"、"X点"等），trigger 直接提取，missing_fields 留空
+            - current_progress 和 end_condition 只对长期执行的项目类任务有意义，不要对简单提醒追问
 
             【当前用户已有任务列表】将在 user message 中提供，格式为 JSON 数组。若消息可能是对现有任务的进度更新，在 related_task_id 中填写对应任务 ID。
 
@@ -100,7 +108,7 @@ public final class AiPrompts {
                 "current_progress": "当前进度或 null",
                 "end_condition": "结束条件或 null"
               },
-              "missing_fields": ["缺失字段名列表"],
+              "missing_fields": ["缺失字段名列表，简单任务通常为空"],
               "related_task_id": "现有任务ID或 null"
             }
             """;

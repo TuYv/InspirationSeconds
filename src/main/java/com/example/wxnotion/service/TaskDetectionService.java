@@ -34,6 +34,14 @@ public class TaskDetectionService {
 
         String raw = aiService.chat(user, AiPrompts.TASK_DETECTION_PROMPT, userContent);
 
+        if (raw == null || !raw.trim().startsWith("{")) {
+            log.warn("任务检测跳过，AI 返回非 JSON 内容: {}", raw);
+            TaskDetectionResult fallback = new TaskDetectionResult();
+            fallback.setTask(false);
+            fallback.setMissingFields(List.of());
+            return fallback;
+        }
+
         try {
             var node = objectMapper.readTree(AiService.cleanJsonResponse(raw));
 

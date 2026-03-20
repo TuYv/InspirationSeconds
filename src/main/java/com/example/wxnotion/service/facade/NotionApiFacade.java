@@ -57,19 +57,46 @@ public class NotionApiFacade {
   }
 
   /**
-   * 创建任务专用 Database（独立于 Notes Database）
+   * 创建任务专用 Database（独立于 Notes Database）。
+   * Notion API 创建数据库时可能忽略 properties，因此先创建再 PATCH 补属性。
    */
   public String createTasksDatabase(String token, String parentPageId, String title) {
     return runWithRetry("createTasksDatabase", () -> {
+      // Step 1: 创建数据库（只带标题）
       Map<String, Object> payload = new HashMap<>();
       payload.put("parent", Map.of("type", "page_id", "page_id", parentPageId));
       payload.put("title", Collections.singletonList(Map.of(
           "type", "text",
           "text", Map.of("content", title)
       )));
+      payload.put("properties", Map.of("Name", Map.of("title", Map.of())));
 
+      String json = mapper.writeValueAsString(payload);
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases",
+          "POST",
+          json,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        throw translateHttp("createTasksDatabase", resp, "parentPageId=" + parentPageId);
+      }
+      JsonNode root = mapper.readTree(resp.body);
+      String dbId = root.path("id").asText(null);
+
+      // Step 2: PATCH 补上所有自定义属性
+      patchTasksDatabaseSchema(token, dbId);
+
+      return dbId;
+    });
+  }
+
+  /**
+   * 向 Tasks Database PATCH 添加任务所需的自定义属性列。
+   */
+  public void patchTasksDatabaseSchema(String token, String dbId) {
+    try {
       Map<String, Object> properties = new LinkedHashMap<>();
-      properties.put("Name", Map.of("title", Map.of()));
       properties.put("Type", Map.of("select", Map.of("options", List.of(
           Map.of("name", "recurring", "color", "blue"),
           Map.of("name", "one_time", "color", "green")
@@ -86,21 +113,23 @@ public class NotionApiFacade {
       ))));
       properties.put("CreatedAt", Map.of("date", Map.of()));
       properties.put("CronExpr", Map.of("rich_text", Map.of()));
-      payload.put("properties", properties);
 
-      String json = mapper.writeValueAsString(payload);
-      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
-          "https://api.notion.com/v1/databases",
-          "POST",
-          json,
+      String patchJson = mapper.writeValueAsString(Map.of("properties", properties));
+      HttpResponse patchResp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + dbId,
+          "PATCH",
+          patchJson,
           buildHeaders(token)
       ));
-      if (!resp.isSuccessful) {
-        throw translateHttp("createTasksDatabase", resp, "parentPageId=" + parentPageId);
+      if (!patchResp.isSuccessful) {
+        log.warn("Tasks Database schema PATCH 失败，dbId={}, code={}, body={}",
+            dbId, patchResp.code, patchResp.body);
+      } else {
+        log.info("Tasks Database schema 已补全，dbId={}", dbId);
       }
-      JsonNode root = mapper.readTree(resp.body);
-      return root.path("id").asText(null);
-    });
+    } catch (Exception e) {
+      log.error("Tasks Database schema PATCH 异常，dbId={}", dbId, e);
+    }
   }
 
   /**
@@ -158,6 +187,30 @@ public class NotionApiFacade {
         throw translateHttp("patchPageProperties", resp, "pageId=" + pageId);
       }
       return null;
+    });
+  }
+
+  /**
+   * 获取 Database 实际存在的属性名集合（GET /databases/{databaseId}，取 properties 的 key）
+   * 用于在创建页面前校验属性是否真实存在
+   */
+  public Set<String> getDatabasePropertyNames(String token, String databaseId) {
+    return runWithRetry("getDatabasePropertyNames", () -> {
+      HttpResponse resp = httpClient.execute(new HttpClient.HttpRequest(
+          "https://api.notion.com/v1/databases/" + databaseId,
+          "GET",
+          null,
+          buildHeaders(token)
+      ));
+      if (!resp.isSuccessful) {
+        log.warn("获取数据库属性失败，databaseId={}, code={}", databaseId, resp.code);
+        return new HashSet<>();
+      }
+      JsonNode root = mapper.readTree(resp.body);
+      JsonNode properties = root.path("properties");
+      Set<String> names = new HashSet<>();
+      properties.fieldNames().forEachRemaining(names::add);
+      return names;
     });
   }
 
