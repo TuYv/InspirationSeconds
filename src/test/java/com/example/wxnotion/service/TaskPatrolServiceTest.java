@@ -54,7 +54,7 @@ public class TaskPatrolServiceTest {
 
         service.patrol();
 
-        verify(wechatService).pushTemplateMessage(eq("u1"), eq("读书计划"), eq("记得更新进度哦"), eq(""));
+        verify(wechatService).pushMessageToUser(eq("u1"), eq("记得更新进度哦"));
     }
 
     @Test
